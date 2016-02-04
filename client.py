@@ -69,7 +69,7 @@ def get_obstacles(conn, cookie):
     while True:
         conn.request('GET', '/api/obstacles', None, headers = {'Cookie': cookie})
         print(json.dumps(json.loads(conn.getresponse().read().decode()), indent = 4, sort_keys = True))
-        # sleep(.1)
+        sleep(.1)
 
 if __name__ == '__main__':
     main()
