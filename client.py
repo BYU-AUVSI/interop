@@ -93,6 +93,7 @@ def main():
     print('Server Address: ', serveraddr)
     print('Server Port: ', serverport)
 
+
     connect(serveraddr, serverport)
 
 
@@ -101,27 +102,33 @@ def usage():
 
 
 def connect(serveraddr, serverport):
-    print('Opening Connection')
-    conn = http.client.HTTPConnection(serveraddr, serverport)
-    print('Connection Opened')
+    conn = None
 
-    print('Logging in')
-    params = urllib.parse.urlencode({'username': 'testadmin', 'password': 'testpass'})
-    print(str(params))
-    headers = {"Content-type": "application/x-www-form-urlencoded", "Accept": "text/plain"}
-    conn.request('POST', '/api/login', params, headers)
-    response = conn.getresponse()
-    print(response.status, response.reason)
-    if response.status == 200:
-        cookie = response.getheader('Set-Cookie')
-        print('Cookie:', cookie)
-        print('Successfully Logged In')
-        test_run(conn, cookie)
-    else:
-        print('Error Logging In')
+    while True:
+        try:
+            print('Opening Connection')
+            conn = http.client.HTTPConnection(serveraddr, serverport)
+            print('Connection Opened')
 
-    print('Closing Connection')
-    conn.close()
+            print('Logging in')
+            params = urllib.parse.urlencode({'username': 'testadmin', 'password': 'testpass'})
+            print(str(params))
+            headers = {"Content-type": "application/x-www-form-urlencoded", "Accept": "text/plain"}
+            conn.request('POST', '/api/login', params, headers)
+            response = conn.getresponse()
+            print(response.status, response.reason)
+
+            if response.status == 200:
+                cookie = response.getheader('Set-Cookie')
+                print('Cookie:', cookie)
+                print('Successfully Logged In')
+                test_run(conn, cookie)
+            else:
+                print('Error Logging In')
+        except Exception as e:
+            print('Error:', str(e))
+            print('Closing Connection')
+            conn.close()
 
 
 def get_obstacles(conn, cookie):
