@@ -3,10 +3,39 @@
 import sys
 import getopt
 import http.client
+import threading
 import urllib.parse
 import json
+from http.server import BaseHTTPRequestHandler, HTTPServer
 from time import sleep
 
+
+PORT_NUM = 28874  # AUVSI
+
+
+class ServerHandler(BaseHTTPRequestHandler):
+    def do_POST(self):
+        try:
+            if self.path == '/telemetry':
+                length = int(self.headers['Content-Length'])
+                post_data = urllib.parse.parse_qs(self.rfile.read(length).decode('utf-8'))
+                print(post_data)
+                self.send_response(200)
+                message = 'SUCCESS!'
+                self.wfile.write(bytes(message, 'utf8'))
+        except IOError:
+            self.send_error(404, 'Not Found')
+
+    def do_GET(self):
+        try:
+            if self.path == '/':
+                self.send_response(200)
+                self.send_header('Content-type', 'text/html')
+                message = 'SUCCESS!'
+                self.wfile.write(bytes(message, 'utf8'))
+                return
+        except IOError:
+            self.send_error(404, 'Not Found')
 
 
 class Telemetry(object):
@@ -18,6 +47,8 @@ class Telemetry(object):
 
     # use __getattr__('heading') or other attributes for the data
     # use __set__('heading', 90) or other attributes to set data
+
+telemetry = Telemetry(0,0,0,0)
 
 class Obstacle(object):
     # if is_sphere is false, it's a cylinder
@@ -31,7 +62,7 @@ class Obstacle(object):
         self.is_moving = is_moving
 
     def printObstacle(self):
-        if(self.is_sphere):
+        if self.is_sphere:
             print('Sphere...')
             print('latitude: ', self.latitude)
             print('longitude: ', self.longitude)
@@ -67,6 +98,10 @@ class Target(object):
         # Color Types: white, black, gray, red, blue, green, yellow, purple, brown, orange
 
 
+def runserver():
+    server = HTTPServer(('127.0.0.1', PORT_NUM), ServerHandler)
+    server.serve_forever()
+
 
 def main():
     serveraddr = '127.0.0.1'
@@ -92,7 +127,6 @@ def main():
 
     print('Server Address: ', serveraddr)
     print('Server Port: ', serverport)
-
 
     connect(serveraddr, serverport)
 
@@ -150,14 +184,10 @@ def get_obstacles(conn, cookie):
         newObst.is_sphere = False
         obstacles.append(newObst)
 
-    for obst in obstacles:
-        obst.printObstacle()
+    # for obst in obstacles:
+    #     obst.printObstacle()
 
     return obstacles
-
-    # print(json.dumps(jSon, indent=4, sort_keys=True))
-    # print(jSon['moving_obstacles'][0]['longitude'])
-    # exit()
 
 
 def post_telemetry(conn, cookie, telemetry):
@@ -167,19 +197,19 @@ def post_telemetry(conn, cookie, telemetry):
     headers = {"Content-type": "application/x-www-form-urlencoded", "Accept": "text/plain", 'Cookie': cookie}
     conn.request('POST', '/api/telemetry', params, headers)
     response = conn.getresponse()
-    print(response.read().decode())
+    # print(response.read().decode())
 
 
 def post_target(conn, cookie, target):
     params = urllib.parse.urlencode({'type': target.type, 'latitude': target.latitude, 'longitude': target.longitude,
-                                     'orinetation': target.orientation, 'shape': target.shape, 'background_color':
+                                     'orientation': target.orientation, 'shape': target.shape, 'background_color':
                                          target.background_color, 'alphanumeric': target.alphanumeric,
                                      'alphanumeric_color': target.alphanumeric_color, 'description': target.description})
     headers = {"Content-type": "application/x-www-form-urlencoded", "Accept": "text/plain", 'Cookie': cookie}
     conn.request('POST', '/api/targets', params, headers)
 
     response = conn.getresponse()
-    if(response.reason == 'CREATED'):
+    if response.reason == 'CREATED':
         print("Target was submitted successfully!")
         # jSon = json.loads(response.read().decode())
     else:
@@ -195,7 +225,7 @@ def test_run(conn, cookie):
                 telemetry.altitude = obst.alt_height + 150
                 telemetry.longitude = obst.longitude
                 telemetry.latitude = obst.latitude
-                telemetry.heading = 90;
+                telemetry.heading = 90
                 break
 
         post_telemetry(conn, cookie, telemetry)
@@ -203,4 +233,7 @@ def test_run(conn, cookie):
 
 
 if __name__ == '__main__':
-    main()
+    mainThread = threading.Thread(target = main)
+    mainThread.start()
+    serverThread = threading.Thread(target = runserver)
+    serverThread.start()
