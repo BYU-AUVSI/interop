@@ -6,6 +6,7 @@ import http.client
 import threading
 import urllib.parse
 import json
+import base64
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from time import sleep
 
@@ -211,12 +212,32 @@ def post_target(conn, cookie, target):
     response = conn.getresponse()
     if response.reason == 'CREATED':
         print("Target was submitted successfully!")
-        # jSon = json.loads(response.read().decode())
+        jSon = json.loads(response.read().decode())
+        print(jSon[0][id])
+        return jSon[0][id]
     else:
         print("Something went wrong with posting a target!")
+        return -1
+
+
+def post_target_image(conn, cookie, target_id, image_name):
+    with open(image_name, "rb") as image_file:
+        encoded_image = base64.b64encode(image_file.read())
+    headers = {"Content-type": "image/jpeg", 'Cookie': cookie}
+    conn.request('POST', '/api/targets/' + str(target_id) + '/image', encoded_image, headers)
+
+    response = conn.getresponse()
+    if response.reason == 'OK':
+        print("*****Target image was submitted successfully!******")
+    else:
+        print("*****Something went wrong with posting an image!*****")
+        print(response.status)
 
 
 def test_run(conn, cookie):
+
+    test_image(conn, cookie)
+
     while True:
         obstacles = get_obstacles(conn, cookie)
         telemetry = Telemetry(0, 0, 0, 0)
@@ -230,6 +251,16 @@ def test_run(conn, cookie):
 
         post_telemetry(conn, cookie, telemetry)
         sleep(.1)
+
+
+def test_image(conn, cookie):
+    image_name = "/images/test.jpg"
+    target = Target("standard", 76.11111, 57.12345, "N", "circle", "red", "A", "white", None)
+    target_id = post_target(conn, cookie, target)
+    if target_id != -1:
+        post_target_image(conn, cookie, target_id, image_name)
+    else:
+        print("Couldn't post the image, post_target failed.")
 
 
 if __name__ == '__main__':
