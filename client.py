@@ -144,7 +144,7 @@ def connect(serveraddr, serverport):
             print('Connection Opened')
 
             print('Logging in')
-            params = urllib.parse.urlencode({'username': 'testadmin', 'password': 'testpass'})
+            params = urllib.parse.urlencode({'username': 'testuser', 'password': 'testpass'})
             print(str(params))
             headers = {"Content-Type": "application/x-www-form-urlencoded", "Accept": "text/plain"}
             conn.request('POST', '/api/login', params, headers)
@@ -195,6 +195,7 @@ def post_telemetry(conn, cookie, telemetry):
                     'uas_heading': telemetry.heading})
     headers = {"Content-Type": "application/x-www-form-urlencoded", "Accept": "text/plain", 'Cookie': cookie}
     conn.request('POST', '/api/telemetry', params, headers)
+    response = conn.getresponse()
 
 
 def post_target(conn, cookie, target):
@@ -239,18 +240,21 @@ def test_run(conn, cookie):
     test_image(conn, cookie)
 
     while True:
-        obstacles = get_obstacles(conn, cookie)
-        telemetry = Telemetry(0, 0, 0, 0)
-        for obst in obstacles:
-            if obst.is_moving:
-                telemetry.altitude = obst.alt_height + 150
-                telemetry.longitude = obst.longitude
-                telemetry.latitude = obst.latitude
-                telemetry.heading = 90
-                break
+        try:
+            obstacles = get_obstacles(conn, cookie)
+            telemetry = Telemetry(0, 0, 0, 0)
+            for obst in obstacles:
+                if obst.is_moving:
+                    telemetry.altitude = obst.alt_height + 150
+                    telemetry.longitude = obst.longitude
+                    telemetry.latitude = obst.latitude
+                    telemetry.heading = 90
+                    break
 
-        post_telemetry(conn, cookie, telemetry)
-        sleep(.1)
+            post_telemetry(conn, cookie, telemetry)
+            sleep(.1)
+        except Exception as e:
+            print(e)
 
 
 def test_image(conn, cookie):
