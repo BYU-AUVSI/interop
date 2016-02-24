@@ -1,12 +1,11 @@
 #!/usr/bin/python
-
+import os
 import sys
 import getopt
 import http.client
 import threading
 import urllib.parse
 import json
-import base64
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from time import sleep
 
@@ -49,7 +48,6 @@ class Telemetry(object):
     # use __getattr__('heading') or other attributes for the data
     # use __set__('heading', 90) or other attributes to set data
 
-telemetry = Telemetry(0,0,0,0)
 
 class Obstacle(object):
     # if is_sphere is false, it's a cylinder
@@ -148,7 +146,7 @@ def connect(serveraddr, serverport):
             print('Logging in')
             params = urllib.parse.urlencode({'username': 'testadmin', 'password': 'testpass'})
             print(str(params))
-            headers = {"Content-type": "application/x-www-form-urlencoded", "Accept": "text/plain"}
+            headers = {"Content-Type": "application/x-www-form-urlencoded", "Accept": "text/plain"}
             conn.request('POST', '/api/login', params, headers)
             response = conn.getresponse()
             print(response.status, response.reason)
@@ -161,7 +159,7 @@ def connect(serveraddr, serverport):
             else:
                 print('Error Logging In')
         except Exception as e:
-            print('Error:', str(e))
+            print('Error:', e)
             print('Closing Connection')
             conn.close()
 
@@ -195,26 +193,27 @@ def post_telemetry(conn, cookie, telemetry):
     params = urllib.parse.urlencode(
                 {'latitude': telemetry.latitude, 'longitude': telemetry.longitude, 'altitude_msl': telemetry.altitude,
                     'uas_heading': telemetry.heading})
-    headers = {"Content-type": "application/x-www-form-urlencoded", "Accept": "text/plain", 'Cookie': cookie}
+    headers = {"Content-Type": "application/x-www-form-urlencoded", "Accept": "text/plain", 'Cookie': cookie}
     conn.request('POST', '/api/telemetry', params, headers)
-    response = conn.getresponse()
-    # print(response.read().decode())
 
 
 def post_target(conn, cookie, target):
-    params = urllib.parse.urlencode({'type': target.type, 'latitude': target.latitude, 'longitude': target.longitude,
-                                     'orientation': target.orientation, 'shape': target.shape, 'background_color':
-                                         target.background_color, 'alphanumeric': target.alphanumeric,
-                                     'alphanumeric_color': target.alphanumeric_color, 'description': target.description})
-    headers = {"Content-type": "application/x-www-form-urlencoded", "Accept": "text/plain", 'Cookie': cookie}
-    conn.request('POST', '/api/targets', params, headers)
+    params = {'type': target.type, 'latitude': target.latitude, 'longitude': target.longitude,
+              'orientation': target.orientation, 'shape': target.shape, 'background_color': target.background_color,
+              'alphanumeric': target.alphanumeric, 'alphanumeric_color': target.alphanumeric_color,
+              'description': target.description}
+
+    json_params = json.dumps(params)
+
+    headers = {"Content-Type": "application/json", "Accept": "text/plain", 'Cookie': cookie}
+    conn.request('POST', '/api/targets', json_params, headers)
 
     response = conn.getresponse()
+
     if response.reason == 'CREATED':
         print("Target was submitted successfully!")
         jSon = json.loads(response.read().decode())
-        print(jSon[0][id])
-        return jSon[0][id]
+        return jSon['id']
     else:
         print("Something went wrong with posting a target!")
         return -1
@@ -222,8 +221,9 @@ def post_target(conn, cookie, target):
 
 def post_target_image(conn, cookie, target_id, image_name):
     with open(image_name, "rb") as image_file:
-        encoded_image = base64.b64encode(image_file.read())
-    headers = {"Content-type": "image/jpeg", 'Cookie': cookie}
+        encoded_image = image_file.read()
+
+    headers = {"Content-Type": "image/jpeg", 'Cookie': cookie}
     conn.request('POST', '/api/targets/' + str(target_id) + '/image', encoded_image, headers)
 
     response = conn.getresponse()
@@ -231,7 +231,7 @@ def post_target_image(conn, cookie, target_id, image_name):
         print("*****Target image was submitted successfully!******")
     else:
         print("*****Something went wrong with posting an image!*****")
-        print(response.status)
+        print(response.read().decode())
 
 
 def test_run(conn, cookie):
@@ -254,7 +254,8 @@ def test_run(conn, cookie):
 
 
 def test_image(conn, cookie):
-    image_name = "/images/test.jpg"
+    image_name = os.path.relpath("images/test.jpg")
+
     target = Target("standard", 76.11111, 57.12345, "N", "circle", "red", "A", "white", None)
     target_id = post_target(conn, cookie, target)
     if target_id != -1:
