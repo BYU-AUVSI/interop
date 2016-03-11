@@ -3,7 +3,7 @@ import os
 import sys
 import getopt
 import rospy
-import urllib
+import httplib
 import threading
 import urlparse
 import json
@@ -121,7 +121,7 @@ def connect(serveraddr, serverport):
     while True:
         try:
             print('Opening Connection')
-            conn = urllib.HTTPConnection(serveraddr, serverport)
+            conn = httplib.HTTPConnection(serveraddr, serverport)
             print('Connection Opened')
 
             print('Logging in')
