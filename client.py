@@ -2,14 +2,14 @@
 import os
 import sys
 import getopt
+import rospy
 import http.client
 import threading
 import urllib.parse
 import json
-import rospy
-from std_msgs.msg import String
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from time import sleep
+from std_msgs.msg import String
 
 
 PORT_NUM = 28874  # AUVSI
