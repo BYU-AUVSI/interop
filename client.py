@@ -5,7 +5,7 @@ import getopt
 import rospy
 import httplib
 import threading
-import urlparse
+import urllib
 import json
 from time import sleep
 from std_msgs.msg import String
@@ -125,7 +125,7 @@ def connect(serveraddr, serverport):
             print('Connection Opened')
 
             print('Logging in')
-            params = urlparse.parse_qs({'username': 'testuser', 'password': 'testpass'})
+            params = urllib.urlencode({'username': 'testuser', 'password': 'testpass'})
             print(str(params))
             headers = {"Content-Type": "application/x-www-form-urlencoded", "Accept": "text/plain"}
             conn.request('POST', '/api/login', params, headers)
@@ -171,7 +171,7 @@ def get_obstacles(conn, cookie):
 
 
 def post_telemetry(conn, cookie, telemetry):
-    params = urlparse.parse_qs(
+    params = urllib.urlencode(
                 {'latitude': telemetry.latitude, 'longitude': telemetry.longitude, 'altitude_msl': telemetry.altitude,
                     'uas_heading': telemetry.heading})
     headers = {"Content-Type": "application/x-www-form-urlencoded", "Accept": "text/plain", 'Cookie': cookie}
