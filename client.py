@@ -7,37 +7,11 @@ import http.client
 import threading
 import urllib.parse
 import json
-from http.server import BaseHTTPRequestHandler, HTTPServer
 from time import sleep
 from std_msgs.msg import String
 
 
 PORT_NUM = 28874  # AUVSI
-
-
-class ServerHandler(BaseHTTPRequestHandler):
-    def do_POST(self):
-        try:
-            if self.path == '/telemetry':
-                length = int(self.headers['Content-Length'])
-                post_data = urllib.parse.parse_qs(self.rfile.read(length).decode('utf-8'))
-                print(post_data)
-                self.send_response(200)
-                message = 'SUCCESS!'
-                self.wfile.write(bytes(message, 'utf8'))
-        except IOError:
-            self.send_error(404, 'Not Found')
-
-    def do_GET(self):
-        try:
-            if self.path == '/':
-                self.send_response(200)
-                self.send_header('Content-type', 'text/html')
-                message = 'SUCCESS!'
-                self.wfile.write(bytes(message, 'utf8'))
-                return
-        except IOError:
-            self.send_error(404, 'Not Found')
 
 
 class Telemetry(object):
@@ -107,11 +81,6 @@ def listener():
     rospy.init_node('listener', anonymous=True)
     rospy.Subscriber("chatter", String, callback)
     rospy.spin()
-
-
-def runserver():
-    server = HTTPServer(('127.0.0.1', PORT_NUM), ServerHandler)
-    server.serve_forever()
 
 
 def main():
@@ -283,7 +252,5 @@ def test_image(conn, cookie):
 if __name__ == '__main__':
     mainThread = threading.Thread(target=main)
     mainThread.start()
-    # serverThread = threading.Thread(target = runserver)
-    # serverThread.start()
     listenerThread = threading.Thread(target=listener)
     listenerThread.start()
