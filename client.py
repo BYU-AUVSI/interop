@@ -6,6 +6,8 @@ import http.client
 import threading
 import urllib.parse
 import json
+import rospy
+from std_msgs.msg import String
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from time import sleep
 
@@ -95,6 +97,16 @@ class Target(object):
         # Shape Types: circle, semicircle, quarter_circle, triangle, square, rectangle, trapezoid, pentagon, hexagon,
         #  heptagon, octagon, star, cross
         # Color Types: white, black, gray, red, blue, green, yellow, purple, brown, orange
+
+
+def callback(data):
+    rospy.loginfo(rospy.get_caller_id() + "T heard %s", data.data)
+
+
+def listener():
+    rospy.init_node('listener', anonymous=True)
+    rospy.Subscriber("chatter", String, callback)
+    rospy.spin()
 
 
 def runserver():
@@ -269,7 +281,9 @@ def test_image(conn, cookie):
 
 
 if __name__ == '__main__':
-    mainThread = threading.Thread(target = main)
+    mainThread = threading.Thread(target=main)
     mainThread.start()
-    serverThread = threading.Thread(target = runserver)
-    serverThread.start()
+    # serverThread = threading.Thread(target = runserver)
+    # serverThread.start()
+    listenerThread = threading.Thread(target=listener)
+    listenerThread.start()
