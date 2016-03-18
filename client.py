@@ -250,7 +250,8 @@ def test_image(conn, cookie):
 
 
 if __name__ == '__main__':
-    mainThread = threading.Thread(target=main)
-    mainThread.start()
-    listenerThread = threading.Thread(target=listener)
-    listenerThread.start()
+    listener()
+    # mainThread = threading.Thread(target=main)
+    # mainThread.start()
+    # listenerThread = threading.Thread(target=listener)
+    # listenerThread.start()
