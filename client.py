@@ -10,8 +10,8 @@ import json
 from time import sleep
 from std_msgs.msg import String
 
-
-PORT_NUM = 28874  # AUVSI
+SERVERADDR = '192.168.0.104'
+SERVERPORT = 80
 
 
 class Telemetry(object):
@@ -86,29 +86,29 @@ def listener():
 def main():
     serveraddr = '127.0.0.1'
     serverport = 80
-
-    try:
-        opts, args = getopt.getopt(sys.argv[1:], 'hs:p:', ['server=', 'port='])
-    except getopt.GetoptError as err:
-        print(err)
-        usage()
-        sys.exit(2)
-    for opt, arg in opts:
-        if opt == '-h':
-            usage()
-            sys.exit()
-        elif opt in ('-s', '--server'):
-            serveraddr = arg
-        elif opt in ('-p', '--port'):
-            serverport = arg
-        else:
-            usage()
-            sys.exit(2)
-
-    print('Server Address: ', serveraddr)
-    print('Server Port: ', serverport)
-
-    connect(serveraddr, serverport)
+    #
+    # try:
+    #     opts, args = getopt.getopt(sys.argv[1:], 'hs:p:', ['server=', 'port='])
+    # except getopt.GetoptError as err:
+    #     print(err)
+    #     usage()
+    #     sys.exit(2)
+    # for opt, arg in opts:
+    #     if opt == '-h':
+    #         usage()
+    #         sys.exit()
+    #     elif opt in ('-s', '--server'):
+    #         serveraddr = arg
+    #     elif opt in ('-p', '--port'):
+    #         serverport = arg
+    #     else:
+    #         usage()
+    #         sys.exit(2)
+    #
+    # print('Server Address: ', serveraddr)
+    # print('Server Port: ', serverport)
+    #
+    # connect(serveraddr, serverport)
 
 
 def usage():
@@ -136,9 +136,18 @@ def connect(serveraddr, serverport):
                 cookie = response.getheader('Set-Cookie')
                 print('Cookie:', cookie)
                 print('Successfully Logged In')
-                test_run(conn, cookie)
+
+                while True:
+                    sleep(.2)
+                    conn.request('GET', '/api/server_info', None, headers={'Cookie': cookie})
+                    response = conn.getresponse()
+
+                    print('Server Response: ' + response.read().decode())
+
+                    if response.status != 200:
+                        raise Exception('Connection with server failed')
             else:
-                print('Error Logging In')
+                raise Exception('Error Logging In')
         except Exception as e:
             print('Error:', e)
             print('Closing Connection')
@@ -250,6 +259,7 @@ def test_image(conn, cookie):
 
 
 if __name__ == '__main__':
+    connectionThread = threading.Thread(target=connect(SERVERADDR, SERVERPORT))
     listener()
     # mainThread = threading.Thread(target=main)
     # mainThread.start()
