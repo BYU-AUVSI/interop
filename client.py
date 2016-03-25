@@ -12,6 +12,8 @@ from std_msgs.msg import String
 
 SERVERADDR = '192.168.0.104'
 SERVERPORT = 80
+GLOBALCONN = None
+GLOBALCOOKIE = None
 
 
 class Telemetry(object):
@@ -73,13 +75,22 @@ class Target(object):
         # Color Types: white, black, gray, red, blue, green, yellow, purple, brown, orange
 
 
-def callback(data):
+def telemcallback(data):
     rospy.loginfo(rospy.get_caller_id() + "T heard %s", data.data)
+    # Setup telemetry model and pass to post_telemetry() [possibly spin up a thread to do this????]
+
+
+def targetcallback(data):
+    rospy.loginfo(rospy.get_caller_id() + "T heard %s", data.data)
+    # Setup target model and pass to post_target() and post_target_image() [possibly spin up a thread to do this????]
 
 
 def listener():
     rospy.init_node('listener', anonymous=True)
-    rospy.Subscriber("chatter", String, callback)
+    rospy.Subscriber("chatter", String, telemcallback)  # This should be the listener for (at least part of)
+    # telemetry from autopilot
+    # rospy.Subscriber("chatter", String, targetcallback)  # This should be the listener for target images from image
+    #  processing
     rospy.spin()
 
 
@@ -116,31 +127,33 @@ def usage():
 
 
 def connect(serveraddr, serverport):
-    conn = None
+    # conn = None
+    global GLOBALCONN
+    global GLOBALCOOKIE
 
     while True:
         try:
             print('Opening Connection')
-            conn = httplib.HTTPConnection(serveraddr, serverport)
+            GLOBALCONN = httplib.HTTPConnection(serveraddr, serverport)
             print('Connection Opened')
 
             print('Logging in')
             params = urllib.urlencode({'username': 'testuser', 'password': 'testpass'})
             print(str(params))
             headers = {"Content-Type": "application/x-www-form-urlencoded", "Accept": "text/plain"}
-            conn.request('POST', '/api/login', params, headers)
-            response = conn.getresponse()
+            GLOBALCONN.request('POST', '/api/login', params, headers)
+            response = GLOBALCONN.getresponse()
             print(response.status, response.reason)
 
             if response.status == 200:
-                cookie = response.getheader('Set-Cookie')
-                print('Cookie:', cookie)
+                GLOBALCOOKIE = response.getheader('Set-Cookie')
+                print('Cookie:', GLOBALCOOKIE)
                 print('Successfully Logged In')
 
                 while True:
                     sleep(.2)
-                    conn.request('GET', '/api/server_info', None, headers={'Cookie': cookie})
-                    response = conn.getresponse()
+                    GLOBALCONN.request('GET', '/api/server_info', None, headers={'Cookie': GLOBALCOOKIE})
+                    response = GLOBALCONN.getresponse()
 
                     print('Server Response: ' + response.read().decode())
 
@@ -151,10 +164,15 @@ def connect(serveraddr, serverport):
         except Exception as e:
             print('Error:', e)
             print('Closing Connection')
-            conn.close()
+            GLOBALCONN.close()
 
 
-def get_obstacles(conn, cookie):
+def get_obstacles():
+    global GLOBALCONN
+    global GLOBALCOOKIE
+
+    conn = GLOBALCONN
+    cookie = GLOBALCOOKIE
 
     obstacles = []
 
@@ -179,7 +197,13 @@ def get_obstacles(conn, cookie):
     return obstacles
 
 
-def post_telemetry(conn, cookie, telemetry):
+def post_telemetry(telemetry):
+    global GLOBALCONN
+    global GLOBALCOOKIE
+
+    conn = GLOBALCONN
+    cookie = GLOBALCOOKIE
+
     params = urllib.urlencode(
                 {'latitude': telemetry.latitude, 'longitude': telemetry.longitude, 'altitude_msl': telemetry.altitude,
                     'uas_heading': telemetry.heading})
@@ -188,7 +212,13 @@ def post_telemetry(conn, cookie, telemetry):
     response = conn.getresponse()
 
 
-def post_target(conn, cookie, target):
+def post_target(target):
+    global GLOBALCONN
+    global GLOBALCOOKIE
+
+    conn = GLOBALCONN
+    cookie = GLOBALCOOKIE
+
     params = {'type': target.type, 'latitude': target.latitude, 'longitude': target.longitude,
               'orientation': target.orientation, 'shape': target.shape, 'background_color': target.background_color,
               'alphanumeric': target.alphanumeric, 'alphanumeric_color': target.alphanumeric_color,
@@ -210,7 +240,13 @@ def post_target(conn, cookie, target):
         return -1
 
 
-def post_target_image(conn, cookie, target_id, image_name):
+def post_target_image(target_id, image_name):
+    global GLOBALCONN
+    global GLOBALCOOKIE
+
+    conn = GLOBALCONN
+    cookie = GLOBALCOOKIE
+
     with open(image_name, "rb") as image_file:
         encoded_image = image_file.read()
 
@@ -225,13 +261,12 @@ def post_target_image(conn, cookie, target_id, image_name):
         print(response.read().decode())
 
 
-def test_run(conn, cookie):
-
-    test_image(conn, cookie)
+def test_run():
+    test_image()
 
     while True:
         try:
-            obstacles = get_obstacles(conn, cookie)
+            obstacles = get_obstacles()
             telemetry = Telemetry(0, 0, 0, 0)
             for obst in obstacles:
                 if obst.is_moving:
@@ -241,19 +276,19 @@ def test_run(conn, cookie):
                     telemetry.heading = 90
                     break
 
-            post_telemetry(conn, cookie, telemetry)
+            post_telemetry(telemetry)
             sleep(.1)
         except Exception as e:
             print(e)
 
 
-def test_image(conn, cookie):
+def test_image():
     image_name = os.path.relpath("images/test.jpg")
 
     target = Target("standard", 76.11111, 57.12345, "N", "circle", "red", "A", "white", None)
-    target_id = post_target(conn, cookie, target)
+    target_id = post_target(target)
     if target_id != -1:
-        post_target_image(conn, cookie, target_id, image_name)
+        post_target_image(target_id, image_name)
     else:
         print("Couldn't post the image, post_target failed.")
 
