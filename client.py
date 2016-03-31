@@ -102,7 +102,6 @@ def targetcallback(data):
 #
 def talker():
     print('Talking')
-    rospy.init_node('talker', anonymous=True)
     publisher = rospy.Publisher('obstacles', String, queue_size=10)
     rate = rospy.Rate(10)
     #
@@ -118,7 +117,6 @@ def talker():
 
 def main():
     print('Listening')
-    rospy.init_node('ground_station', anonymous=True)
     rospy.Subscriber("chatter", String, telemcallback)  # This should be the listener for (at least part of)
     # telemetry from autopilot
     # rospy.Subscriber("chatter", String, targetcallback)  # This should be the listener for target images from image
@@ -382,6 +380,7 @@ if __name__ == '__main__':
     # main()
     # connectionThread = threading.Thread(target=connect(SERVERADDR, SERVERPORT))
     # listener()
+    rospy.init_node('ground_station', anonymous=True)
     connect()
     mainThread = threading.Thread(target=main)
     mainThread.start()
