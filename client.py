@@ -319,10 +319,10 @@ def test_image():
 
 
 if __name__ == '__main__':
+    main()
     # connectionThread = threading.Thread(target=connect(SERVERADDR, SERVERPORT))
-    print('Moving On! :D')
-    listener()
-    talker()
+    # listener()
+    # talker()
     # mainThread = threading.Thread(target=main)
     # mainThread.start()
     # listenerThread = threading.Thread(target=listener)
