@@ -86,6 +86,7 @@ def targetcallback(data):
 
 
 def listener():
+    print('Listening')
     rospy.init_node('listener', anonymous=True)
     rospy.Subscriber("chatter", String, telemcallback)  # This should be the listener for (at least part of)
     # telemetry from autopilot
