@@ -102,15 +102,18 @@ def targetcallback(data):
 #
 def talker():
     print('Talking')
-    rospy.init_node('talker', anonymous=True)
-    publisher = rospy.Publisher('obstacles', String, 10)
+    # rospy.init_node('talker', anonymous=True)
+    publisher = rospy.Publisher('obstacles', String, queue_size=10)
     rate = rospy.Rate(10)
 
-    while not rospy.is_shutdown():
-        string = get_obstacles()
-        rospy.loginfo(string)
-        publisher.publish(string)
-        rate.sleep()
+    publisher.publish("one time")
+    print('Cookie: ' + get_cookie())
+
+    # while not rospy.is_shutdown():
+    #     string = get_obstacles()
+    #     rospy.loginfo(string)
+    #     publisher.publish(string)
+    #     rate.sleep()
 
 
 def main():
