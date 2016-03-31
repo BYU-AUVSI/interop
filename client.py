@@ -96,17 +96,17 @@ def targetcallback(data):
 #     rospy.spin()
 #
 #
-# def talker():
-#     print('Talking')
-#     rospy.init_node('talker', anonymous=True)
-#     publisher = rospy.Publisher('obstacles', String)
-#     rate = rospy.Rate(10)
-#
-#     while not rospy.is_shutdown():
-#         string = get_obstacles()
-#         rospy.loginfo(string)
-#         publisher.publish(string)
-#         rate.sleep()
+def talker():
+    print('Talking')
+    rospy.init_node('talker', anonymous=True)
+    publisher = rospy.Publisher('obstacles', String)
+    rate = rospy.Rate(10)
+
+    while not rospy.is_shutdown():
+        string = get_obstacles()
+        rospy.loginfo(string)
+        publisher.publish(string)
+        rate.sleep()
 
 
 def main():
@@ -118,15 +118,15 @@ def main():
     #  processing
     rospy.spin()
 
-    print('Talking')
-    publisher = rospy.Publisher('obstacles', String)
-    rate = rospy.Rate(10)
-
-    while not rospy.is_shutdown():
-        string = get_obstacles()
-        rospy.loginfo(string)
-        publisher.publish(string)
-        rate.sleep()
+    # print('Talking')
+    # publisher = rospy.Publisher('obstacles', String)
+    # rate = rospy.Rate(10)
+    #
+    # while not rospy.is_shutdown():
+    #     string = get_obstacles()
+    #     rospy.loginfo(string)
+    #     publisher.publish(string)
+    #     rate.sleep()
 
 
 def connect():
@@ -319,11 +319,11 @@ def test_image():
 
 
 if __name__ == '__main__':
-    main()
+    # main()
     # connectionThread = threading.Thread(target=connect(SERVERADDR, SERVERPORT))
     # listener()
-    # talker()
-    # mainThread = threading.Thread(target=main)
-    # mainThread.start()
+    talker()
+    mainThread = threading.Thread(target=main)
+    mainThread.start()
     # listenerThread = threading.Thread(target=listener)
     # listenerThread.start()
