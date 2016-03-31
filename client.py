@@ -383,9 +383,8 @@ if __name__ == '__main__':
     # connectionThread = threading.Thread(target=connect(SERVERADDR, SERVERPORT))
     # listener()
     connect()
-    mainThread = threading.Thread(target=main)
-    mainThread.daemon = True
-    mainThread.start()
+    # mainThread = threading.Thread(target=main)
+    # mainThread.start()
     talker()
     # listenerThread = threading.Thread(target=listener)
     # listenerThread.start()
