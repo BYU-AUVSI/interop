@@ -95,6 +95,7 @@ def listener():
 
 
 def talker():
+    print('Talking')
     rospy.init_node('talker', anonymous=True)
     publisher = rospy.Publisher('obstacles', String)
     rate = rospy.Rate(10)
@@ -167,7 +168,7 @@ def connect(serveraddr, serverport):
                     GLOBALCONN.request('GET', '/api/server_info', None, headers={'Cookie': GLOBALCOOKIE})
                     response = GLOBALCONN.getresponse()
 
-                    print('Server Response: ' + response.read().decode())
+                    # print('Server Response: ' + response.read().decode())
 
                     if response.status != 200:
                         raise Exception('Connection with server failed')
