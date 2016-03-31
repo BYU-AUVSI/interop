@@ -381,6 +381,7 @@ if __name__ == '__main__':
     # listener()
     talker()
     mainThread = threading.Thread(target=main)
+    mainThread.daemon = True
     mainThread.start()
     # listenerThread = threading.Thread(target=listener)
     # listenerThread.start()
