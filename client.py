@@ -99,7 +99,7 @@ def targetcallback(data):
 def talker():
     print('Talking')
     rospy.init_node('talker', anonymous=True)
-    publisher = rospy.Publisher('obstacles', String)
+    publisher = rospy.Publisher('obstacles', String, 10)
     rate = rospy.Rate(10)
 
     while not rospy.is_shutdown():
@@ -137,21 +137,21 @@ def connect():
 
     while not CONNECTED:
         try:
-            print('Opening Connection')
+            # print('Opening Connection')
             GLOBALCONN = httplib.HTTPConnection(SERVERADDR, SERVERPORT)
-            print('Connection Opened')
+            # print('Connection Opened')
 
-            print('Logging in')
+            # print('Logging in')
             params = urllib.urlencode({'username': 'testuser', 'password': 'testpass'})
-            print(str(params))
+            # print(str(params))
             headers = {"Content-Type": "application/x-www-form-urlencoded", "Accept": "text/plain"}
             GLOBALCONN.request('POST', '/api/login', params, headers)
             response = GLOBALCONN.getresponse()
-            print(response.status, response.reason)
+            # print(response.status, response.reason)
 
             if response.status == 200:
                 GLOBALCOOKIE = response.getheader('Set-Cookie')
-                print('Cookie:', GLOBALCOOKIE)
+                # print('Cookie:', GLOBALCOOKIE)
                 print('Successfully Logged In')
                 CONNECTED = True
 
@@ -180,6 +180,7 @@ def send_request(method, url, params, headers):
 
     while True:
         if not CONNECTED:
+            print('Connecting')
             connect()
 
         GLOBALCONN.request(method, url, params, headers)
