@@ -14,6 +14,7 @@ SERVERADDR = '192.168.0.104'
 SERVERPORT = 80
 GLOBALCONN = None
 GLOBALCOOKIE = None
+CONNECTED = False
 
 
 class Telemetry(object):
@@ -85,19 +86,39 @@ def targetcallback(data):
     # Setup target model and pass to post_target() and post_target_image() [possibly spin up a thread to do this????]
 
 
-def listener():
+# def listener():
+#     print('Listening')
+#     rospy.init_node('listener', anonymous=True)
+#     rospy.Subscriber("chatter", String, telemcallback)  # This should be the listener for (at least part of)
+#     # telemetry from autopilot
+#     # rospy.Subscriber("chatter", String, targetcallback)  # This should be the listener for target images from image
+#     #  processing
+#     rospy.spin()
+#
+#
+# def talker():
+#     print('Talking')
+#     rospy.init_node('talker', anonymous=True)
+#     publisher = rospy.Publisher('obstacles', String)
+#     rate = rospy.Rate(10)
+#
+#     while not rospy.is_shutdown():
+#         string = get_obstacles()
+#         rospy.loginfo(string)
+#         publisher.publish(string)
+#         rate.sleep()
+
+
+def main():
     print('Listening')
-    rospy.init_node('listener', anonymous=True)
+    rospy.init_node('ground_station', anonymous=True)
     rospy.Subscriber("chatter", String, telemcallback)  # This should be the listener for (at least part of)
     # telemetry from autopilot
     # rospy.Subscriber("chatter", String, targetcallback)  # This should be the listener for target images from image
     #  processing
     rospy.spin()
 
-
-def talker():
     print('Talking')
-    rospy.init_node('talker', anonymous=True)
     publisher = rospy.Publisher('obstacles', String)
     rate = rospy.Rate(10)
 
@@ -108,47 +129,16 @@ def talker():
         rate.sleep()
 
 
-def main():
-    serveraddr = '127.0.0.1'
-    serverport = 80
-    #
-    # try:
-    #     opts, args = getopt.getopt(sys.argv[1:], 'hs:p:', ['server=', 'port='])
-    # except getopt.GetoptError as err:
-    #     print(err)
-    #     usage()
-    #     sys.exit(2)
-    # for opt, arg in opts:
-    #     if opt == '-h':
-    #         usage()
-    #         sys.exit()
-    #     elif opt in ('-s', '--server'):
-    #         serveraddr = arg
-    #     elif opt in ('-p', '--port'):
-    #         serverport = arg
-    #     else:
-    #         usage()
-    #         sys.exit(2)
-    #
-    # print('Server Address: ', serveraddr)
-    # print('Server Port: ', serverport)
-    #
-    # connect(serveraddr, serverport)
-
-
-def usage():
-    print('client.py -s <server address> -p <server port>')
-
-
-def connect(serveraddr, serverport):
+def connect():
     # conn = None
     global GLOBALCONN
     global GLOBALCOOKIE
+    global CONNECTED
 
-    while True:
+    while not CONNECTED:
         try:
             print('Opening Connection')
-            GLOBALCONN = httplib.HTTPConnection(serveraddr, serverport)
+            GLOBALCONN = httplib.HTTPConnection(SERVERADDR, SERVERPORT)
             print('Connection Opened')
 
             print('Logging in')
@@ -163,35 +153,67 @@ def connect(serveraddr, serverport):
                 GLOBALCOOKIE = response.getheader('Set-Cookie')
                 print('Cookie:', GLOBALCOOKIE)
                 print('Successfully Logged In')
+                CONNECTED = True
 
-                while True:
-                    sleep(.2)
-                    GLOBALCONN.request('GET', '/api/server_info', None, headers={'Cookie': GLOBALCOOKIE})
-                    response = GLOBALCONN.getresponse()
-
-                    # print('Server Response: ' + response.read().decode())
-
-                    if response.status != 200:
-                        raise Exception('Connection with server failed')
+                # while True:
+                #     sleep(.2)
+                #     GLOBALCONN.request('GET', '/api/server_info', None, headers={'Cookie': GLOBALCOOKIE})
+                #     response = GLOBALCONN.getresponse()
+                #
+                #     # print('Server Response: ' + response.read().decode())
+                #
+                #     if response.status != 200:
+                #         raise Exception('Connection with server failed')
             else:
                 raise Exception('Error Logging In')
         except Exception as e:
             print('Error:', e)
             print('Closing Connection')
             GLOBALCONN.close()
+            CONNECTED = False
+
+
+def send_request(method, url, params, headers):
+    global GLOBALCONN
+    global CONNECTED
+    response = None
+
+    while True:
+        if not CONNECTED:
+            connect()
+
+        GLOBALCONN.request(method, url, params, headers)
+        response = GLOBALCONN.getresponse()
+
+        if response.status == 200 or response.status == 201:
+            break
+        elif response.status == 400:
+            print('400 - Bad Request: {url:' + url + ', params:' + params + ', headers:' + headers + '}')
+            break
+        elif response.status == 403:
+            CONNECTED = False  # Retry but create a new connection and login again first
+            print ('403 - Forbidden: {url:' + url + ', headers:' + headers + '} Was the cookie sent?')
+        elif response.status == 404:
+            print('404 - Not Found: {url:' + url + '}')
+            break
+        elif response.status == 405:
+            print('405 - Invalid Request: {url:' + url + ', method:' + method + '}')
+            break
+        elif response.status == 413:
+            print('413 - Image is too large, it needs to be < 1MB')
+            break
+        elif response.status == 500:
+            print('500 - SERVER ERROR')
+            break
+
+    return response
 
 
 def get_obstacles():
-    global GLOBALCONN
-    global GLOBALCOOKIE
-
-    conn = GLOBALCONN
-    cookie = GLOBALCOOKIE
-
     # obstacles = []
 
-    conn.request('GET', '/api/obstacles', None, headers={'Cookie': cookie})
-    return conn.getresponse().read().decode()
+    response = send_request('GET', '/api/obstacles', None, headers={'Cookie': GLOBALCOOKIE})
+    return response.read().decode()
     # jSon = json.loads(conn.getresponse().read().decode())
 
     # for movObst in jSon['moving_obstacles']:
@@ -213,26 +235,17 @@ def get_obstacles():
 
 
 def post_telemetry(telemetry):
-    global GLOBALCONN
     global GLOBALCOOKIE
-
-    conn = GLOBALCONN
-    cookie = GLOBALCOOKIE
 
     params = urllib.urlencode(
                 {'latitude': telemetry.latitude, 'longitude': telemetry.longitude, 'altitude_msl': telemetry.altitude,
                     'uas_heading': telemetry.heading})
-    headers = {"Content-Type": "application/x-www-form-urlencoded", "Accept": "text/plain", 'Cookie': cookie}
-    conn.request('POST', '/api/telemetry', params, headers)
-    response = conn.getresponse()
+    headers = {"Content-Type": "application/x-www-form-urlencoded", "Accept": "text/plain", 'Cookie': GLOBALCOOKIE}
+    response = send_request('POST', '/api/telemetry', params, headers)
 
 
 def post_target(target):
-    global GLOBALCONN
     global GLOBALCOOKIE
-
-    conn = GLOBALCONN
-    cookie = GLOBALCOOKIE
 
     params = {'type': target.type, 'latitude': target.latitude, 'longitude': target.longitude,
               'orientation': target.orientation, 'shape': target.shape, 'background_color': target.background_color,
@@ -241,12 +254,10 @@ def post_target(target):
 
     json_params = json.dumps(params)
 
-    headers = {"Content-Type": "application/json", "Accept": "text/plain", 'Cookie': cookie}
-    conn.request('POST', '/api/targets', json_params, headers)
+    headers = {"Content-Type": "application/json", "Accept": "text/plain", 'Cookie': GLOBALCOOKIE}
+    response = send_request('POST', '/api/targets', json_params, headers)
 
-    response = conn.getresponse()
-
-    if response.reason == 'CREATED':
+    if response.status == 201:
         print("Target was submitted successfully!")
         jSon = json.loads(response.read().decode())
         return jSon['id']
@@ -266,35 +277,34 @@ def post_target_image(target_id, image_name):
         encoded_image = image_file.read()
 
     headers = {"Content-Type": "image/jpeg", 'Cookie': cookie}
-    conn.request('POST', '/api/targets/' + str(target_id) + '/image', encoded_image, headers)
+    response = send_request('POST', '/api/targets/' + str(target_id) + '/image', encoded_image, headers)
 
-    response = conn.getresponse()
-    if response.reason == 'OK':
+    if response.reason == 200:
         print("*****Target image was submitted successfully!******")
     else:
         print("*****Something went wrong with posting an image!*****")
         print(response.read().decode())
 
 
-def test_run():
-    test_image()
-
-    while True:
-        try:
-            obstacles = get_obstacles()
-            telemetry = Telemetry(0, 0, 0, 0)
-            for obst in obstacles:
-                if obst.is_moving:
-                    telemetry.altitude = obst.alt_height + 150
-                    telemetry.longitude = obst.longitude
-                    telemetry.latitude = obst.latitude
-                    telemetry.heading = 90
-                    break
-
-            post_telemetry(telemetry)
-            sleep(.1)
-        except Exception as e:
-            print(e)
+# def test_run():
+#     test_image()
+#
+#     while True:
+#         try:
+#             obstacles = get_obstacles()
+#             telemetry = Telemetry(0, 0, 0, 0)
+#             for obst in obstacles:
+#                 if obst.is_moving:
+#                     telemetry.altitude = obst.alt_height + 150
+#                     telemetry.longitude = obst.longitude
+#                     telemetry.latitude = obst.latitude
+#                     telemetry.heading = 90
+#                     break
+#
+#             post_telemetry(telemetry)
+#             sleep(.1)
+#         except Exception as e:
+#             print(e)
 
 
 def test_image():
