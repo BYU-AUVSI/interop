@@ -189,11 +189,16 @@ def send_request(method, url, params, headers):
         if response.status == 200 or response.status == 201:
             break
         elif response.status == 400:
-            print('400 - Bad Request: {url:' + url + ', params:' + params + ', headers:' + headers + '}')
+            print('400 - Bad Request')
+            print('url:' + url)
+            print(params)
+            print(headers)
             break
         elif response.status == 403:
             CONNECTED = False  # Retry but create a new connection and login again first
-            print ('403 - Forbidden: {url:' + url + ', headers:' + headers + '} Was the cookie sent?')
+            print ('403 - Forbidden: Was the cookie sent?')
+            print('url:' + url)
+            print(headers)
         elif response.status == 404:
             print('404 - Not Found: {url:' + url + '}')
             break
