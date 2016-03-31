@@ -16,6 +16,10 @@ GLOBALCONN = None
 GLOBALCOOKIE = None
 CONNECTED = False
 
+connectionLock = threading.Lock()
+cookieLock = threading.Lock()
+connectedLock = threading.Lock()
+
 
 class Telemetry(object):
     def __init__(self, latitude, longitude, altitude, heading):
@@ -129,15 +133,62 @@ def main():
     #     rate.sleep()
 
 
+def take_connection():
+    global GLOBALCONN
+    connectionLock.acquire()
+    return GLOBALCONN
+
+
+def return_connection():
+    connectionLock.release()
+
+
+def get_cookie():
+    global GLOBALCOOKIE
+
+    cookieLock.acquire()
+    cookie = GLOBALCOOKIE
+    cookieLock.release()
+
+    return cookie
+
+
+def set_cookie(cookie):
+    global GLOBALCOOKIE
+
+    cookieLock.acquire()
+    GLOBALCOOKIE = cookie
+    cookieLock.release()
+
+
+def is_connected():
+    global CONNECTED
+
+    connectedLock.acquire()
+    connected = CONNECTED
+    connectedLock.release()
+
+    return connected
+
+
+def set_is_connected(connected):
+    global CONNECTED
+
+    connectedLock.acquire()
+    CONNECTED = connected
+    connectedLock.release()
+
+
 def connect():
     # conn = None
     global GLOBALCONN
-    global GLOBALCOOKIE
-    global CONNECTED
 
-    while not CONNECTED:
+    while not is_connected():
         try:
             # print('Opening Connection')
+
+            take_connection()
+
             GLOBALCONN = httplib.HTTPConnection(SERVERADDR, SERVERPORT)
             # print('Connection Opened')
 
@@ -147,13 +198,17 @@ def connect():
             headers = {"Content-Type": "application/x-www-form-urlencoded", "Accept": "text/plain"}
             GLOBALCONN.request('POST', '/api/login', params, headers)
             response = GLOBALCONN.getresponse()
+
+            return_connection()
+
             # print(response.status, response.reason)
 
             if response.status == 200:
-                GLOBALCOOKIE = response.getheader('Set-Cookie')
-                # print('Cookie:', GLOBALCOOKIE)
+
+                set_cookie(response.getheader('Set-Cookie'))
+                # print('Cookie:', get_cookie())
                 print('Successfully Logged In')
-                CONNECTED = True
+                set_is_connected(True)
 
                 # while True:
                 #     sleep(.2)
@@ -169,22 +224,27 @@ def connect():
         except Exception as e:
             print('Error:', e)
             print('Closing Connection')
+
+            take_connection()
             GLOBALCONN.close()
-            CONNECTED = False
+            return_connection()
+
+            set_is_connected(False)
 
 
 def send_request(method, url, params, headers):
-    global GLOBALCONN
-    global CONNECTED
     response = None
 
     while True:
-        if not CONNECTED:
+        if not is_connected():
             print('Connecting')
             connect()
 
+        take_connection()
         GLOBALCONN.request(method, url, params, headers)
+
         response = GLOBALCONN.getresponse()
+        return_connection()
 
         if response.status == 200 or response.status == 201:
             break
@@ -195,7 +255,7 @@ def send_request(method, url, params, headers):
             print(headers)
             break
         elif response.status == 403:
-            CONNECTED = False  # Retry but create a new connection and login again first
+            set_is_connected(False)  # Retry but create a new connection and login again first
             print ('403 - Forbidden: Was the cookie sent?')
             print('url:' + url)
             print(headers)
@@ -218,7 +278,7 @@ def send_request(method, url, params, headers):
 def get_obstacles():
     # obstacles = []
 
-    response = send_request('GET', '/api/obstacles', None, headers={'Cookie': GLOBALCOOKIE})
+    response = send_request('GET', '/api/obstacles', None, headers={'Cookie': get_cookie()})
     return response.read().decode()
     # jSon = json.loads(conn.getresponse().read().decode())
 
@@ -241,17 +301,14 @@ def get_obstacles():
 
 
 def post_telemetry(telemetry):
-    global GLOBALCOOKIE
-
     params = urllib.urlencode(
                 {'latitude': telemetry.latitude, 'longitude': telemetry.longitude, 'altitude_msl': telemetry.altitude,
                     'uas_heading': telemetry.heading})
-    headers = {"Content-Type": "application/x-www-form-urlencoded", "Accept": "text/plain", 'Cookie': GLOBALCOOKIE}
+    headers = {"Content-Type": "application/x-www-form-urlencoded", "Accept": "text/plain", 'Cookie': get_cookie()}
     response = send_request('POST', '/api/telemetry', params, headers)
 
 
 def post_target(target):
-    global GLOBALCOOKIE
 
     params = {'type': target.type, 'latitude': target.latitude, 'longitude': target.longitude,
               'orientation': target.orientation, 'shape': target.shape, 'background_color': target.background_color,
@@ -260,7 +317,7 @@ def post_target(target):
 
     json_params = json.dumps(params)
 
-    headers = {"Content-Type": "application/json", "Accept": "text/plain", 'Cookie': GLOBALCOOKIE}
+    headers = {"Content-Type": "application/json", "Accept": "text/plain", 'Cookie': get_cookie()}
     response = send_request('POST', '/api/targets', json_params, headers)
 
     if response.status == 201:
@@ -273,16 +330,10 @@ def post_target(target):
 
 
 def post_target_image(target_id, image_name):
-    global GLOBALCONN
-    global GLOBALCOOKIE
-
-    conn = GLOBALCONN
-    cookie = GLOBALCOOKIE
-
     with open(image_name, "rb") as image_file:
         encoded_image = image_file.read()
 
-    headers = {"Content-Type": "image/jpeg", 'Cookie': cookie}
+    headers = {"Content-Type": "image/jpeg", 'Cookie': get_cookie()}
     response = send_request('POST', '/api/targets/' + str(target_id) + '/image', encoded_image, headers)
 
     if response.reason == 200:
