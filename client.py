@@ -81,41 +81,16 @@ class Target(object):
 
 
 def telemcallback(data):
-    rospy.loginfo(rospy.get_caller_id() + "T heard %s", data.data)
+    rospy.loginfo(rospy.get_caller_id() + "I heard %s", data.data)
     # Setup telemetry model and pass to post_telemetry() [possibly spin up a thread to do this????]
 
 
 def targetcallback(data):
-    rospy.loginfo(rospy.get_caller_id() + "T heard %s", data.data)
+    rospy.loginfo(rospy.get_caller_id() + "I heard %s", data.data)
     # Setup target model and pass to post_target() and post_target_image() [possibly spin up a thread to do this????]
 
 
-# def listener():
-#     print('Listening')
-#     rospy.init_node('listener', anonymous=True)
-#     rospy.Subscriber("chatter", String, telemcallback)  # This should be the listener for (at least part of)
-#     # telemetry from autopilot
-#     # rospy.Subscriber("chatter", String, targetcallback)  # This should be the listener for target images from image
-#     #  processing
-#     rospy.spin()
-#
-#
-def talker():
-    print('Talking')
-    publisher = rospy.Publisher('obstacles', String, queue_size=10)
-    rate = rospy.Rate(10)
-    #
-    # publisher.publish("one time")
-    # print('Cookie: ' + get_cookie())
-
-    while not rospy.is_shutdown():
-        string = get_obstacles()
-        rospy.loginfo(string)
-        publisher.publish(string)
-        rate.sleep()
-
-
-def main():
+def listener():
     print('Listening')
     rospy.Subscriber("chatter", String, telemcallback)  # This should be the listener for (at least part of)
     # telemetry from autopilot
@@ -123,15 +98,17 @@ def main():
     #  processing
     rospy.spin()
 
-    # print('Talking')
-    # publisher = rospy.Publisher('obstacles', String)
-    # rate = rospy.Rate(10)
-    #
-    # while not rospy.is_shutdown():
-    #     string = get_obstacles()
-    #     rospy.loginfo(string)
-    #     publisher.publish(string)
-    #     rate.sleep()
+
+def talker():
+    print('Talking')
+    publisher = rospy.Publisher('obstacles', String, queue_size=10)
+    rate = rospy.Rate(10)
+
+    while not rospy.is_shutdown():
+        string = get_obstacles()
+        rospy.loginfo(string)
+        publisher.publish(string)
+        rate.sleep()
 
 
 def take_connection():
@@ -205,21 +182,11 @@ def connect():
             # print(response.status, response.reason)
 
             if response.status == 200:
-
                 set_cookie(response.getheader('Set-Cookie'))
                 # print('Cookie:', get_cookie())
+
                 print('Successfully Logged In')
                 set_is_connected(True)
-
-                # while True:
-                #     sleep(.2)
-                #     GLOBALCONN.request('GET', '/api/server_info', None, headers={'Cookie': GLOBALCOOKIE})
-                #     response = GLOBALCONN.getresponse()
-                #
-                #     # print('Server Response: ' + response.read().decode())
-                #
-                #     if response.status != 200:
-                #         raise Exception('Connection with server failed')
             else:
                 raise Exception('Error Logging In')
         except Exception as e:
@@ -365,25 +332,21 @@ def post_target_image(target_id, image_name):
 #             print(e)
 
 
-def test_image():
-    image_name = os.path.relpath("images/test.jpg")
-
-    target = Target("standard", 76.11111, 57.12345, "N", "circle", "red", "A", "white", None)
-    target_id = post_target(target)
-    if target_id != -1:
-        post_target_image(target_id, image_name)
-    else:
-        print("Couldn't post the image, post_target failed.")
+# def test_image():
+#     image_name = os.path.relpath("images/test.jpg")
+#
+#     target = Target("standard", 76.11111, 57.12345, "N", "circle", "red", "A", "white", None)
+#     target_id = post_target(target)
+#     if target_id != -1:
+#         post_target_image(target_id, image_name)
+#     else:
+#         print("Couldn't post the image, post_target failed.")
 
 
 if __name__ == '__main__':
-    # main()
-    # connectionThread = threading.Thread(target=connect(SERVERADDR, SERVERPORT))
-    # listener()
     rospy.init_node('ground_station', anonymous=True)
     connect()
-    mainThread = threading.Thread(target=main)
-    mainThread.start()
+
+    listenerThread = threading.Thread(target=listener)
+    listenerThread.start()
     talker()
-    # listenerThread = threading.Thread(target=listener)
-    # listenerThread.start()
