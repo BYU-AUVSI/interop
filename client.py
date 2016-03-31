@@ -13,6 +13,8 @@ from std_msgs.msg import String
 SERVERADDR = '192.168.0.104'
 SERVERPORT = 80
 
+conn = None
+cookie = ''
 
 class Telemetry(object):
     def __init__(self, latitude, longitude, altitude, heading):
@@ -81,6 +83,18 @@ def listener():
     rospy.init_node('listener', anonymous=True)
     rospy.Subscriber("chatter", String, callback)
     rospy.spin()
+
+
+def talker():
+    rospy.init_node('talker', anonymous=True)
+    publisher = rospy.Publisher('obstacles', String)
+    rate = rospy.Rate(10)
+
+    while not rospy.is_shutdown():
+        string = get_obstacles()
+        rospy.loginfo(string)
+        publisher.publish(string)
+        rate.sleep()
 
 
 def main():
@@ -154,29 +168,30 @@ def connect(serveraddr, serverport):
             conn.close()
 
 
-def get_obstacles(conn, cookie):
+def get_obstacles():
 
-    obstacles = []
+    # obstacles = []
 
     conn.request('GET', '/api/obstacles', None, headers={'Cookie': cookie})
-    jSon = json.loads(conn.getresponse().read().decode())
+    return conn.getresponse().read().decode()
+    # jSon = json.loads(conn.getresponse().read().decode())
 
-    for movObst in jSon['moving_obstacles']:
-        newObst = Obstacle(movObst['latitude'], movObst['longitude'], movObst['altitude_msl'],
-                            movObst['sphere_radius'], True)
-        newObst.is_sphere = True
-        obstacles.append(newObst)
-
-    for statObst in jSon['stationary_obstacles']:
-        newObst = Obstacle(statObst['latitude'], statObst['longitude'], statObst['cylinder_height'],
-                           statObst['cylinder_radius'], False)
-        newObst.is_sphere = False
-        obstacles.append(newObst)
-
-    # for obst in obstacles:
-    #     obst.printObstacle()
-
-    return obstacles
+    # for movObst in jSon['moving_obstacles']:
+    #     newObst = Obstacle(movObst['latitude'], movObst['longitude'], movObst['altitude_msl'],
+    #                         movObst['sphere_radius'], True)
+    #     newObst.is_sphere = True
+    #     obstacles.append(newObst)
+    #
+    # for statObst in jSon['stationary_obstacles']:
+    #     newObst = Obstacle(statObst['latitude'], statObst['longitude'], statObst['cylinder_height'],
+    #                        statObst['cylinder_radius'], False)
+    #     newObst.is_sphere = False
+    #     obstacles.append(newObst)
+    #
+    # # for obst in obstacles:
+    # #     obst.printObstacle()
+    #
+    # return obstacles
 
 
 def post_telemetry(conn, cookie, telemetry):
@@ -261,6 +276,7 @@ def test_image(conn, cookie):
 if __name__ == '__main__':
     connectionThread = threading.Thread(target=connect(SERVERADDR, SERVERPORT))
     listener()
+    talker()
     # mainThread = threading.Thread(target=main)
     # mainThread.start()
     # listenerThread = threading.Thread(target=listener)
