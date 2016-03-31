@@ -379,9 +379,9 @@ if __name__ == '__main__':
     # main()
     # connectionThread = threading.Thread(target=connect(SERVERADDR, SERVERPORT))
     # listener()
-    talker()
     mainThread = threading.Thread(target=main)
     mainThread.daemon = True
     mainThread.start()
+    talker()
     # listenerThread = threading.Thread(target=listener)
     # listenerThread.start()
