@@ -9,12 +9,19 @@ import urllib
 import json
 from time import sleep
 from std_msgs.msg import String
+from std_msgs.msg import Float64
+from sensor_msgs.msg import NavSatFix
 
 SERVERADDR = '192.168.0.104'
 SERVERPORT = 80
 GLOBALCONN = None
 GLOBALCOOKIE = None
 CONNECTED = False
+
+new_lat = False
+new_long = False
+new_alt = False
+new_hdg = False
 
 connectionLock = threading.Lock()
 cookieLock = threading.Lock()
@@ -28,8 +35,17 @@ class Telemetry(object):
         self.altitude = altitude
         self.heading = heading
 
+    def printTelemetry(self):
+        print('Latitude: ', self.latitude)
+        print('Longitude: ', self.longitude)
+        print('Altitude: ', self.altitude)
+        print('Heading: ', self.heading)
+
     # use __getattr__('heading') or other attributes for the data
     # use __set__('heading', 90) or other attributes to set data
+
+# global telemetry object
+telemetry = Telemetry(0, 0, 0, 0)
 
 
 class Obstacle(object):
@@ -80,9 +96,20 @@ class Target(object):
         # Color Types: white, black, gray, red, blue, green, yellow, purple, brown, orange
 
 
-def telemcallback(data):
-    rospy.loginfo(rospy.get_caller_id() + "I heard %s", data.data)
-    # Setup telemetry model and pass to post_telemetry() [possibly spin up a thread to do this????]
+def gps_callback(data):
+    #rospy.loginfo(rospy.get_caller_id() + "GPS Latitude: %s, Longitude: %s, Altitude: %s", data.latitude, data.longitude, data.altitude)
+    telem = dict()
+    telem['lat'] = data.latitude
+    telem['long'] = data.longitude
+    telem['alt'] = data.altitude
+    update_telemetry(telem)
+
+
+def hdg_callback(data):
+    #rospy.loginfo(rospy.get_caller_id() + "AUVSI Heading: %s", data.data)
+    telem = dict()
+    telem['hdg'] = data.data
+    update_telemetry(telem)
 
 
 def targetcallback(data):
@@ -92,11 +119,36 @@ def targetcallback(data):
 
 def listener():
     print('Listening')
-    rospy.Subscriber("chatter", String, telemcallback)  # This should be the listener for (at least part of)
-    # telemetry from autopilot
+    rospy.Subscriber("/mavros/global_position/global", NavSatFix, gps_callback)  # gps information + altitude
+    rospy.Subscriber("/mavros/global_position/compass_hdg", Float64, hdg_callback)  # heading
     # rospy.Subscriber("chatter", String, targetcallback)  # This should be the listener for target images from image
     #  processing
     rospy.spin()
+
+
+def update_telemetry(data):
+    global telemetry
+    global new_lat
+    global new_long
+    global new_alt
+    global new_hdg
+
+    if 'lat' in data:
+        telemetry.latitude = data['lat']
+        new_lat = True
+    if 'long' in data:
+        telemetry.longitude = data['long']
+        new_long = True
+    if 'alt' in data:
+        telemetry.altitude = data['alt']
+        new_alt = True
+    if 'hdg' in data:
+        telemetry.heading = data['hdg']
+        new_hdg = True
+
+    if new_lat and new_long and new_alt and new_hdg:
+        sendTelemThread = threading.Thread(target=send_telemetry)
+        sendTelemThread.start()
 
 
 def talker():
@@ -268,7 +320,24 @@ def get_obstacles():
     # return obstacles
 
 
-def post_telemetry(telemetry):
+def send_telemetry():
+    global telemetry
+    global new_lat
+    global new_long
+    global new_alt
+    global new_hdg
+
+    telemetry.printTelemetry()
+    # post_telemetry()
+    new_lat = False
+    new_long = False
+    new_alt = False
+    new_hdg = False
+    
+
+
+def post_telemetry():
+    global telemetry
     params = urllib.urlencode(
                 {'latitude': telemetry.latitude, 'longitude': telemetry.longitude, 'altitude_msl': telemetry.altitude,
                     'uas_heading': telemetry.heading})
@@ -345,8 +414,8 @@ def post_target_image(target_id, image_name):
 
 if __name__ == '__main__':
     rospy.init_node('ground_station', anonymous=True)
-    connect()
+    #connect()
 
     listenerThread = threading.Thread(target=listener)
     listenerThread.start()
-    talker()
+    #talker()
