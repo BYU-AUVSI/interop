@@ -1,0 +1,7 @@
+set(_CATKIN_CURRENT_PACKAGE "auvsi_client")
+set(auvsi_client_MAINTAINER "jeff <jeff@todo.todo>")
+set(auvsi_client_DEPRECATED "")
+set(auvsi_client_VERSION "0.0.0")
+set(auvsi_client_BUILD_DEPENDS "roscpp" "rospy" "std_msgs" "fcu_common")
+set(auvsi_client_RUN_DEPENDS "fcu_common" "roscpp" "rospy" "std_msgs")
+set(auvsi_client_BUILDTOOL_DEPENDS "catkin")

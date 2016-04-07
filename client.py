@@ -12,7 +12,7 @@ from std_msgs.msg import String
 from std_msgs.msg import Float64
 from sensor_msgs.msg import NavSatFix
 
-SERVERADDR = '192.168.0.104'
+SERVERADDR = '127.0.0.1'
 SERVERPORT = 80
 GLOBALCONN = None
 GLOBALCOOKIE = None
@@ -328,7 +328,7 @@ def send_telemetry():
     global new_hdg
 
     telemetry.printTelemetry()
-    # post_telemetry()
+    post_telemetry()
     new_lat = False
     new_long = False
     new_alt = False
@@ -414,8 +414,8 @@ def post_target_image(target_id, image_name):
 
 if __name__ == '__main__':
     rospy.init_node('ground_station', anonymous=True)
-    #connect()
+    connect()
 
     listenerThread = threading.Thread(target=listener)
     listenerThread.start()
-    #talker()
+    talker()

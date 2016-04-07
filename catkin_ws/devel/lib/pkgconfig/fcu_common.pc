@@ -1,0 +1,8 @@
+prefix=/home/jeff/Desktop/auvsi-client/catkin_ws/devel
+
+Name: fcu_common
+Description: Description of fcu_common
+Version: 0.0.0
+Cflags: -I/home/jeff/Desktop/auvsi-client/catkin_ws/devel/include -I/home/jeff/Desktop/auvsi-client/catkin_ws/src/fcu_common/include
+Libs: -L/home/jeff/Desktop/auvsi-client/catkin_ws/devel/lib -lfcu_common
+Requires: roscpp rospy std_msgs sensor_msgs
