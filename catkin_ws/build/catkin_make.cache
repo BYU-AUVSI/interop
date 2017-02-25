@@ -1,2 +1,0 @@
-auvsi_client:fcu_common
--DCATKIN_DEVEL_PREFIX=/home/jeff/Desktop/auvsi-client/catkin_ws/devel -DCMAKE_INSTALL_PREFIX=/home/jeff/Desktop/auvsi-client/catkin_ws/install -G Unix Makefiles

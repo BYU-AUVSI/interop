@@ -1,8 +1,0 @@
-prefix=/home/jeff/Desktop/auvsi-client/catkin_ws/devel
-
-Name: auvsi_client
-Description: Description of auvsi_client
-Version: 0.0.0
-Cflags: -I/home/jeff/Desktop/auvsi-client/catkin_ws/src/auvsi_client/include
-Libs: -L/home/jeff/Desktop/auvsi-client/catkin_ws/devel/lib 
-Requires: fcu_common roscpp rospy std_msgs
