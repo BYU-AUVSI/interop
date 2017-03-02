@@ -12,8 +12,10 @@ from std_msgs.msg import String
 from std_msgs.msg import Float64
 from sensor_msgs.msg import NavSatFix
 
-SERVERADDR = '127.0.0.1'
-SERVERPORT = 80
+# set these values according to current environment variables
+# if environment variables don't exist, use default values
+SERVERADDR = os.getenv('INTEROP_SERVER', os.getenv('SERVER', '127.0.0.1'))
+SERVERPORT = os.getenv('SERVER_PORT', 80)
 GLOBALCONN = None
 GLOBALCOOKIE = None
 CONNECTED = False
