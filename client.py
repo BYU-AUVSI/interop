@@ -17,6 +17,7 @@ SERVERPORT = 80
 GLOBALCONN = None
 GLOBALCOOKIE = None
 CONNECTED = False
+RETRY_MAX = 3
 
 new_lat = False
 new_long = False
@@ -213,18 +214,20 @@ def connect():
     # conn = None
     global GLOBALCONN
 
-    while not is_connected():
+    params = urllib.urlencode({'username': 'testuser', 'password': 'testpass'})
+    retry_count = 0
+    while not is_connected() and retry_count < RETRY_MAX:
+        retry_count+=1
+        # print('Opening Connection')
+
+        # must be outside of try block else will cause deadlock in except block
+        take_connection()
+
         try:
-            # print('Opening Connection')
-
-            take_connection()
-
             GLOBALCONN = httplib.HTTPConnection(SERVERADDR, SERVERPORT)
             # print('Connection Opened')
 
             # print('Logging in')
-            params = urllib.urlencode({'username': 'testuser', 'password': 'testpass'})
-            # print(str(params))
             headers = {"Content-Type": "application/x-www-form-urlencoded", "Accept": "text/plain"}
             GLOBALCONN.request('POST', '/api/login', params, headers)
             response = GLOBALCONN.getresponse()
@@ -242,14 +245,16 @@ def connect():
             else:
                 raise Exception('Error Logging In')
         except Exception as e:
-            print('Error:', e)
-            print('Closing Connection')
+            print('Connection Error: ' + str(e))
 
-            take_connection()
+            # closing connection
             GLOBALCONN.close()
             return_connection()
 
             set_is_connected(False)
+    if retry_count >= RETRY_MAX:
+        print("could not connect to server. (address=" + SERVERADDR + ", port=" + str(SERVERPORT) + ", " + ", ".join(str(params).split("&")) + "). exiting...")
+        exit()
 
 
 def send_request(method, url, params, headers):
@@ -333,7 +338,7 @@ def send_telemetry():
     new_long = False
     new_alt = False
     new_hdg = False
-    
+
 
 
 def post_telemetry():
