@@ -3,7 +3,7 @@ import os
 import sys
 import getopt
 import rospy
-import httplib
+import requests
 import threading
 import urllib
 import json
@@ -12,18 +12,21 @@ from std_msgs.msg import String
 from std_msgs.msg import Float64
 from sensor_msgs.msg import NavSatFix
 
-SERVERADDR = '127.0.0.1'
-SERVERPORT = 80
-GLOBALCONN = None
+# set these values according to current environment variables
+# if environment variables don't exist, use default values
+SERVERADDR = os.getenv('INTEROP_SERVER', os.getenv('SERVER', '127.0.0.1'))
+SERVERPORT = os.getenv('SERVER_PORT', 80)
+SERVERURL = "http://" + SERVERADDR + ":" + str(SERVERPORT)
 GLOBALCOOKIE = None
 CONNECTED = False
+RETRY_MAX = 3
+SESSION = requests.Session()
 
 new_lat = False
 new_long = False
 new_alt = False
 new_hdg = False
 
-connectionLock = threading.Lock()
 cookieLock = threading.Lock()
 connectedLock = threading.Lock()
 
@@ -112,7 +115,7 @@ def hdg_callback(data):
     update_telemetry(telem)
 
 
-def targetcallback(data):
+def target_callback(data):
     rospy.loginfo(rospy.get_caller_id() + "I heard %s", data.data)
     # Setup target model and pass to post_target() and post_target_image() [possibly spin up a thread to do this????]
 
@@ -121,6 +124,7 @@ def listener():
     print('Listening')
     rospy.Subscriber("/mavros/global_position/global", NavSatFix, gps_callback)  # gps information + altitude
     rospy.Subscriber("/mavros/global_position/compass_hdg", Float64, hdg_callback)  # heading
+    rospy.Subscriber("/images/targets", String, target_callback) # TODO: create custom message type
     # rospy.Subscriber("chatter", String, targetcallback)  # This should be the listener for target images from image
     #  processing
     rospy.spin()
@@ -153,24 +157,20 @@ def update_telemetry(data):
 
 def talker():
     print('Talking')
-    publisher = rospy.Publisher('obstacles', String, queue_size=10)
-    rate = rospy.Rate(10)
+    obstacles = rospy.Publisher('obstacles', String, queue_size=10)
+    missions = rospy.Publisher('missions', String, queue_size=10)
+    rate = rospy.Rate(5)
 
     while not rospy.is_shutdown():
         string = get_obstacles()
         rospy.loginfo(string)
-        publisher.publish(string)
+        obstacles.publish(string)
+
+        string = get_missions()
+        rospy.loginfo(string)
+        missions.publish(string)
+
         rate.sleep()
-
-
-def take_connection():
-    global GLOBALCONN
-    connectionLock.acquire()
-    return GLOBALCONN
-
-
-def return_connection():
-    connectionLock.release()
 
 
 def get_cookie():
@@ -208,33 +208,19 @@ def set_is_connected(connected):
     CONNECTED = connected
     connectedLock.release()
 
-
 def connect():
-    # conn = None
-    global GLOBALCONN
+    params = urllib.urlencode({'username': 'testuser', 'password': 'testpass'})
+    retry_count = 0
+    while not is_connected() and retry_count < RETRY_MAX:
+        retry_count+=1
 
-    while not is_connected():
         try:
-            # print('Opening Connection')
-
-            take_connection()
-
-            GLOBALCONN = httplib.HTTPConnection(SERVERADDR, SERVERPORT)
-            # print('Connection Opened')
-
             # print('Logging in')
-            params = urllib.urlencode({'username': 'testuser', 'password': 'testpass'})
-            # print(str(params))
             headers = {"Content-Type": "application/x-www-form-urlencoded", "Accept": "text/plain"}
-            GLOBALCONN.request('POST', '/api/login', params, headers)
-            response = GLOBALCONN.getresponse()
+            response = SESSION.post(SERVERURL+'/api/login', headers=headers, data=params)
 
-            return_connection()
-
-            # print(response.status, response.reason)
-
-            if response.status == 200:
-                set_cookie(response.getheader('Set-Cookie'))
+            if response.status_code == 200:
+                set_cookie(response.headers.get('Set-Cookie'))
                 # print('Cookie:', get_cookie())
 
                 print('Successfully Logged In')
@@ -242,17 +228,14 @@ def connect():
             else:
                 raise Exception('Error Logging In')
         except Exception as e:
-            print('Error:', e)
-            print('Closing Connection')
-
-            take_connection()
-            GLOBALCONN.close()
-            return_connection()
-
+            print('Connection Error: ' + str(e))
             set_is_connected(False)
 
+    if retry_count >= RETRY_MAX:
+        print("could not connect to server. (address=" + SERVERADDR + ", port=" + str(SERVERPORT) + ", " + ", ".join(str(params).split("&")) + "). exiting...")
+        exit()
 
-def send_request(method, url, params, headers):
+def send_request(method, resource, params, headers):
     response = None
 
     while True:
@@ -260,46 +243,46 @@ def send_request(method, url, params, headers):
             print('Connecting')
             connect()
 
-        take_connection()
-        GLOBALCONN.request(method, url, params, headers)
+        if method == 'GET':
+            response = SESSION.get(SERVERURL+resource, headers=headers)
+        elif method == 'POST':
+            response = SESSION.post(SERVERURL+resource, headers=headers, data=params)
+        elif method == 'PUT':
+            response = SESSION.put(SERVERURL+resource, headers=headers, data=params)
 
-        response = GLOBALCONN.getresponse()
-        return_connection()
-
-        if response.status == 200 or response.status == 201:
+        if response.status_code == 200 or response.status_code == 201:
             break
-        elif response.status == 400:
+        elif response.status_code == 400:
             print('400 - Bad Request')
             print('url:' + url)
             print(params)
             print(headers)
             break
-        elif response.status == 403:
+        elif response.status_code == 403:
             set_is_connected(False)  # Retry but create a new connection and login again first
             print ('403 - Forbidden: Was the cookie sent?')
             print('url:' + url)
             print(headers)
-        elif response.status == 404:
+        elif response.status_code == 404:
             print('404 - Not Found: {url:' + url + '}')
             break
-        elif response.status == 405:
+        elif response.status_code == 405:
             print('405 - Invalid Request: {url:' + url + ', method:' + method + '}')
             break
-        elif response.status == 413:
+        elif response.status_code == 413:
             print('413 - Image is too large, it needs to be < 1MB')
             break
-        elif response.status == 500:
+        elif response.status_code == 500:
             print('500 - SERVER ERROR')
             break
 
     return response
 
-
 def get_obstacles():
     # obstacles = []
 
     response = send_request('GET', '/api/obstacles', None, headers={'Cookie': get_cookie()})
-    return response.read().decode()
+    return response.json()
     # jSon = json.loads(conn.getresponse().read().decode())
 
     # for movObst in jSon['moving_obstacles']:
@@ -319,6 +302,9 @@ def get_obstacles():
     #
     # return obstacles
 
+def get_missions():
+    response = send_request('GET', '/api/missions', None, headers={'Cookie': get_cookie()})
+    return response.json
 
 def send_telemetry():
     global telemetry
@@ -333,7 +319,7 @@ def send_telemetry():
     new_long = False
     new_alt = False
     new_hdg = False
-    
+
 
 
 def post_telemetry():
@@ -357,10 +343,9 @@ def post_target(target):
     headers = {"Content-Type": "application/json", "Accept": "text/plain", 'Cookie': get_cookie()}
     response = send_request('POST', '/api/targets', json_params, headers)
 
-    if response.status == 201:
+    if response.status_code == 201:
         print("Target was submitted successfully!")
-        jSon = json.loads(response.read().decode())
-        return jSon['id']
+        return response.json()['id']
     else:
         print("Something went wrong with posting a target!")
         return -1
@@ -373,7 +358,7 @@ def post_target_image(target_id, image_name):
     headers = {"Content-Type": "image/jpeg", 'Cookie': get_cookie()}
     response = send_request('POST', '/api/targets/' + str(target_id) + '/image', encoded_image, headers)
 
-    if response.reason == 200:
+    if response.status_code == 200:
         print("*****Target image was submitted successfully!******")
     else:
         print("*****Something went wrong with posting an image!*****")

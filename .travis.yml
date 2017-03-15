@@ -1,0 +1,17 @@
+services:
+- docker
+script:
+- if [ "$TRAVIS_PULL_REQUEST" == "false" ]; then
+  if [ "$TRAVIS_BRANCH" == "master" ]; then
+  export TAG="latest";
+  else
+  export TAG=$TRAVIS_BRANCH;
+  fi;
+  docker build -t mcrossen/interop:$TAG .;
+  docker login -u="$DOCKER_USER" -p="$DOCKER_PASSWORD";
+  docker push mcrossen/interop;
+  fi
+env:
+  global:
+  - secure: NbQbLi5gTQNXbqt5PqOYdHutqCkGWzcuFRdD+oN/Ggam6vz6oveEP075r2N/VEiM0faoGrPYT/vzudb/NQLuwxsr++Z/M4ROT5oK1GIyfASB6tsVS/4m2Ed8ub3uUVEis80FCv+IpKPWo/CwtyXKhYb4FVNIFc767KlnFpJ1PXSDE1EGxJfpSaNowQLnOMum+MOOATbHhuRTPhn1/hfcBI0BY3QM7O+CIRrTzP45HW/k3cJInIc56NnoDFVEWl7MFng7SEto361CWNUmUwgE4VZraCBjVLB1olOrgSvOpa2Oo77VlMkszo1kncHEIROwxlxX97yGs2uWQQQr+TT6PdM6LBOyDB38IGguipZtWphpZJUJCD5h3v8Q7dUpEANC8QPc8kQnlC3um/9s2qtOjTEWyuMErrho4sc4035I+5A1cekwnCbs0+6BayawcfJQeZNsQhd4WmJmPDcy+Kbh2mqYuVf5qIptplnyOAjvk7IENBRGRT3uz6dwCqh06qoJjcXariK9gSk9yFGsHQSjWU6Ya03XZ6J2CS4DiwbY2gR+KKa/qatgreIkYIuamH/Bwe1nYnAWQNYYt90veOW0iVijxQUvJUFoeu6Nv5xw8NqR4XC3RDa4aSM1kClFrT3Em1wA65siyvUerQ/Yx33KimU9WT7d3BeNxF04d7n9iJ8=
+  - secure: m0cJPiaNk+X+PA5ernuNOpwc01eZW2OUPNwemSPHqmZyruBBcPKEqmnSni3Tu6yLYAbiJ+tEt9E5uIRVTuO39ZCQoucqvv6bmXzJRPEjMaBTL2ILa61ERAVb8j/bkURHwEO/cuH5UrnEwmqhfVBarkp1b6NcIPNfT4XCoYB8YaCTI2AkiOmBWj01YCev+GztHgjddSua/xKdFywqVKjjHOslO5ClDewrKqEMOruapH+Gu5VNzLlXeoKjke2VPpt6P70RIFmtUeyc7U2LV8B/0P7lO1ppi9kd2QUrruabbhjLCBtZ1/MeGYvlu+mXfsaLWtBzpdNCCDkLKvIn7SkFUAVFcUYh1gfAqGjoR3BKKc6u7bOGTjd5dEgFc+sluxYSiLAli74VQ9o6zZvewuSGDjhtnYpIaiipeRxr/jlwkiqA1X2FkVClwy2lQ/9eyhgIoMtP2W39bR2BWkmmMiSeONogggNpwwr6tPdQmIbnHK7lP6jqSb4vYKY+k+p6CykJXwgmpWWhNEz8O3gA94OD24DDi/YAQ9o2YS/SS9cHdafldVYyO2A0AzacU0A2vZyz56wk9R2Rcg65+kPChAV6kFK3uFMCXxZBWcmkomattF7TcM0AUsod/8hPL4tPp0jvmSTJRnosyBxb704A1oy58B+sjjk4vKlydVldjnoCNk4=
