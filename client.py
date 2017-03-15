@@ -20,6 +20,7 @@ SERVERURL = "http://" + SERVERADDR + ":" + str(SERVERPORT)
 GLOBALCOOKIE = None
 CONNECTED = False
 RETRY_MAX = 3
+SESSION = requests.Session()
 
 new_lat = False
 new_long = False
@@ -114,7 +115,7 @@ def hdg_callback(data):
     update_telemetry(telem)
 
 
-def targetcallback(data):
+def target_callback(data):
     rospy.loginfo(rospy.get_caller_id() + "I heard %s", data.data)
     # Setup target model and pass to post_target() and post_target_image() [possibly spin up a thread to do this????]
 
@@ -123,6 +124,7 @@ def listener():
     print('Listening')
     rospy.Subscriber("/mavros/global_position/global", NavSatFix, gps_callback)  # gps information + altitude
     rospy.Subscriber("/mavros/global_position/compass_hdg", Float64, hdg_callback)  # heading
+    rospy.Subscriber("/images/targets", String, target_callback) # TODO: create custom message type
     # rospy.Subscriber("chatter", String, targetcallback)  # This should be the listener for target images from image
     #  processing
     rospy.spin()
@@ -155,13 +157,19 @@ def update_telemetry(data):
 
 def talker():
     print('Talking')
-    publisher = rospy.Publisher('obstacles', String, queue_size=10)
-    rate = rospy.Rate(10)
+    obstacles = rospy.Publisher('obstacles', String, queue_size=10)
+    missions = rospy.Publisher('missions', String, queue_size=10)
+    rate = rospy.Rate(5)
 
     while not rospy.is_shutdown():
         string = get_obstacles()
         rospy.loginfo(string)
-        publisher.publish(string)
+        obstacles.publish(string)
+
+        string = get_missions()
+        rospy.loginfo(string)
+        missions.publish(string)
+
         rate.sleep()
 
 
@@ -209,7 +217,7 @@ def connect():
         try:
             # print('Logging in')
             headers = {"Content-Type": "application/x-www-form-urlencoded", "Accept": "text/plain"}
-            response = requests.post(SERVERURL+'/api/login', headers=headers, data=params)
+            response = SESSION.post(SERVERURL+'/api/login', headers=headers, data=params)
 
             if response.status_code == 200:
                 set_cookie(response.headers.get('Set-Cookie'))
@@ -236,11 +244,11 @@ def send_request(method, resource, params, headers):
             connect()
 
         if method == 'GET':
-            response = requests.get(SERVERURL+resource, headers=headers)
+            response = SESSION.get(SERVERURL+resource, headers=headers)
         elif method == 'POST':
-            response = requests.post(SERVERURL+resource, headers=headers, data=params)
+            response = SESSION.post(SERVERURL+resource, headers=headers, data=params)
         elif method == 'PUT':
-            response = requests.put(SERVERURL+resource, headers=headers, data=params)
+            response = SESSION.put(SERVERURL+resource, headers=headers, data=params)
 
         if response.status_code == 200 or response.status_code == 201:
             break
@@ -294,6 +302,9 @@ def get_obstacles():
     #
     # return obstacles
 
+def get_missions():
+    response = send_request('GET', '/api/missions', None, headers={'Cookie': get_cookie()})
+    return response.json
 
 def send_telemetry():
     global telemetry
