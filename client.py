@@ -263,6 +263,8 @@ def send_request(method, resource, params, headers):
             print('Connecting')
             connect()
 
+        url = SERVERURL+resource
+
         if method == 'GET':
             response = SESSION.get(SERVERURL+resource, headers=headers)
         elif method == 'POST':
@@ -424,5 +426,6 @@ if __name__ == '__main__':
     connect()
 
     listenerThread = threading.Thread(target=listener)
+    listenerThread.setDaemon(True)
     listenerThread.start()
     talker()
