@@ -134,7 +134,7 @@ def state_callback(data):
     telem['alt'] = init_alt + (- data.position[2])  # Negate down because it is distance to initial altitude
     telem['hdg'] = math.degrees(data.chi)
     update_telemetry(telem)
-    rospy.loginfo(rospy.get_caller_id() + "GPS Latitude: %s, Longitude: %s, Altitude: %s, Heading %s", telem["lat"], telem["long"], telem["alt"], telem['hdg'])
+    # rospy.loginfo(rospy.get_caller_id() + "GPS Latitude: %s, Longitude: %s, Altitude: %s, Heading %s", telem["lat"], telem["long"], telem["alt"], telem['hdg'])
 
 
 def listener():
@@ -170,6 +170,7 @@ def update_telemetry(data):
 
     if new_lat and new_long and new_alt and new_hdg:
         sendTelemThread = threading.Thread(target=send_telemetry)
+        sendTelemThread.setDaemon(True)
         sendTelemThread.start()
 
 
@@ -273,6 +274,7 @@ def send_request(method, resource, params, headers):
             response = SESSION.put(SERVERURL+resource, headers=headers, data=params)
 
         if response.status_code == 200 or response.status_code == 201:
+            print('200/201 - Success')
             break
         elif response.status_code == 400:
             print('400 - Bad Request')
@@ -338,7 +340,7 @@ def send_telemetry():
     global new_alt
     global new_hdg
 
-    telemetry.printTelemetry()
+    # telemetry.printTelemetry()
     post_telemetry()
     new_lat = False
     new_long = False
