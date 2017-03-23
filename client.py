@@ -419,7 +419,7 @@ def post_target_image(target_id, image_name):
 
 
 if __name__ == '__main__':
-    rospy.init_node('ground_station', anonymous=True)
+    rospy.init_node('interop_client', anonymous=True)
     connect()
 
     listenerThread = threading.Thread(target=listener)
