@@ -7,10 +7,12 @@ import requests
 import threading
 import urllib
 import json
+import math
 from time import sleep
 from std_msgs.msg import String
 from std_msgs.msg import Float64
 from sensor_msgs.msg import NavSatFix
+from fcu_common.msg import State
 
 # set these values according to current environment variables
 # if environment variables don't exist, use default values
@@ -100,7 +102,7 @@ class Target(object):
 
 
 def gps_callback(data):
-    #rospy.loginfo(rospy.get_caller_id() + "GPS Latitude: %s, Longitude: %s, Altitude: %s", data.latitude, data.longitude, data.altitude)
+    # rospy.loginfo(rospy.get_caller_id() + "GPS Latitude: %s, Longitude: %s, Altitude: %s", data.latitude, data.longitude, data.altitude)
     telem = dict()
     telem['lat'] = data.latitude
     telem['long'] = data.longitude
@@ -109,7 +111,7 @@ def gps_callback(data):
 
 
 def hdg_callback(data):
-    #rospy.loginfo(rospy.get_caller_id() + "AUVSI Heading: %s", data.data)
+    # rospy.loginfo(rospy.get_caller_id() + "AUVSI Heading: %s", data.data)
     telem = dict()
     telem['hdg'] = data.data
     update_telemetry(telem)
@@ -120,10 +122,25 @@ def target_callback(data):
     # Setup target model and pass to post_target() and post_target_image() [possibly spin up a thread to do this????]
 
 
+def state_callback(data):
+    earth_radius = 6371
+    init_lat = 38.144711
+    init_lon = -76.428020
+    init_alt = 5.1
+
+    telem = dict()
+    telem['lat'] = ((data.position[0] * 180)/(earth_radius * math.pi)) + init_lat
+    telem['long'] = (data.position[1] * 180)/(earth_radius * math.cos(init_lat*math.pi/180.0)*math.pi) + init_lon
+    telem['alt'] = init_alt + (- data.position[2])  # Negate down because it is distance to initial altitude
+    rospy.loginfo(rospy.get_caller_id() + "GPS Latitude: %s, Longitude: %s, Altitude: %s", telem["lat"], telem["long"], telem["alt"])
+
+
+
 def listener():
     print('Listening')
-    rospy.Subscriber("/mavros/global_position/global", NavSatFix, gps_callback)  # gps information + altitude
-    rospy.Subscriber("/mavros/global_position/compass_hdg", Float64, hdg_callback)  # heading
+    # rospy.Subscriber("/mavros/global_position/global", NavSatFix, gps_callback)  # gps information + altitude
+    # rospy.Subscriber("/mavros/global_position/compass_hdg", Float64, hdg_callback)  # heading
+    rospy.Subscriber("/state", State, state_callback) # state info from ros_plane
     rospy.Subscriber("/images/targets", String, target_callback) # TODO: create custom message type
     # rospy.Subscriber("chatter", String, targetcallback)  # This should be the listener for target images from image
     #  processing
@@ -208,6 +225,7 @@ def set_is_connected(connected):
     CONNECTED = connected
     connectedLock.release()
 
+
 def connect():
     params = urllib.urlencode({'username': 'testuser', 'password': 'testpass'})
     retry_count = 0
@@ -235,6 +253,7 @@ def connect():
         print("could not connect to server. (address=" + SERVERADDR + ", port=" + str(SERVERPORT) + ", " + ", ".join(str(params).split("&")) + "). exiting...")
         exit()
 
+
 def send_request(method, resource, params, headers):
     response = None
 
@@ -260,7 +279,7 @@ def send_request(method, resource, params, headers):
             break
         elif response.status_code == 403:
             set_is_connected(False)  # Retry but create a new connection and login again first
-            print ('403 - Forbidden: Was the cookie sent?')
+            print('403 - Forbidden: Was the cookie sent?')
             print('url:' + url)
             print(headers)
         elif response.status_code == 404:
@@ -277,6 +296,7 @@ def send_request(method, resource, params, headers):
             break
 
     return response
+
 
 def get_obstacles():
     # obstacles = []
@@ -302,9 +322,11 @@ def get_obstacles():
     #
     # return obstacles
 
+
 def get_missions():
     response = send_request('GET', '/api/missions', None, headers={'Cookie': get_cookie()})
     return response.json
+
 
 def send_telemetry():
     global telemetry
@@ -319,7 +341,6 @@ def send_telemetry():
     new_long = False
     new_alt = False
     new_hdg = False
-
 
 
 def post_telemetry():
