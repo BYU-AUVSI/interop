@@ -11,7 +11,7 @@ SCRIPT_NAME=`basename "$0"`
 for file in `ls -a | grep -xv '.' | grep -xv '..' | grep -v src | grep -v $SCRIPT_NAME | grep -v client.sh`; do
   mv $file src/auvsi_client/
 done
-git clone --depth=50 https://github.com/BYU-AUVSI/fcu_common.git src/fcu_common
+git clone --depth=50 https://github.com/byu-magicc/fcu_common.git src/fcu_common
 rm -rf src/fcu_common/.git*
 catkin_init_workspace
 rm CMakeLists.txt
