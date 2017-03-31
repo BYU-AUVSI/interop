@@ -1,7 +1,6 @@
-FROM ros
+FROM osrf/ros:kinetic-desktop-full
 WORKDIR /interop-client/
-RUN apt-get update && apt-get install -y python-pip \
-  ros-kinetic-gazebo-ros-control
+RUN apt-get update && apt-get install -y python-pip
 COPY . .
 RUN ./setup.sh
 RUN rm setup.sh
