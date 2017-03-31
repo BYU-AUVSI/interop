@@ -6,7 +6,7 @@ pip install --upgrade pip
 pip install requests
 mkdir src
 git clone --depth=50 https://github.com/BYU-AUVSI/vision_pkg.git src/vision_pkg
-git clone --depth=50 https://github.com/byu-magicc/fcu_common.git src/fcu_common
+git clone -b RC1.0 --depth=50 https://github.com/BYU-AUVSI/fcu_common.git src/fcu_common
 mkdir src/auvsi_client
 SCRIPT_NAME=`basename "$0"`
 for file in `ls -a | grep -xv '.' | grep -xv '..' | grep -v src | grep -v $SCRIPT_NAME | grep -v client.sh`; do
