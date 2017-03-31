@@ -132,7 +132,7 @@ def state_callback(data):
     telem['lat'] = ((data.position[0] * 180)/(earth_radius * math.pi)) + init_lat
     telem['long'] = (data.position[1] * 180)/(earth_radius * math.cos(init_lat*math.pi/180.0)*math.pi) + init_lon
     telem['alt'] = init_alt + (- data.position[2])  # Negate down because it is distance to initial altitude
-    telem['hdg'] = math.degrees(data.chi)
+    telem['hdg'] = math.degrees(data.chi % (2 * math.pi))
     update_telemetry(telem)
     # rospy.loginfo(rospy.get_caller_id() + "GPS Latitude: %s, Longitude: %s, Altitude: %s, Heading %s", telem["lat"], telem["long"], telem["alt"], telem['hdg'])
 
