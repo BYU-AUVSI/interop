@@ -1,7 +1,9 @@
 #!/bin/bash
 
+# this script turns the interop repository into a catkin workspace
+# it also downloads other needed packages
 source /opt/ros/kinetic/setup.bash
-apt-get update && apt-get install -y python-pip 
+apt-get update && apt-get install -y python-pip
 pip install --upgrade pip
 pip install requests
 mkdir src

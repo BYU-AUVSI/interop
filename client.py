@@ -8,6 +8,8 @@ import threading
 import urllib
 import json
 import math
+import cv2
+from cv_bridge import CvBridge, CvBridgeError
 from time import sleep
 from std_msgs.msg import String
 from std_msgs.msg import Float64
@@ -18,7 +20,7 @@ from sniper_cam.msg import interopImages
 # set these values according to current environment variables
 # if environment variables don't exist, use default values
 SERVERADDR = os.getenv('INTEROP_SERVER', os.getenv('SERVER', '127.0.0.1'))
-SERVERPORT = os.getenv('SERVER_PORT', 80)
+SERVERPORT = os.getenv('SERVER_PORT', os.getenv('PORT', 80))
 SERVERURL = "http://" + SERVERADDR + ":" + str(SERVERPORT)
 GLOBALCOOKIE = None
 CONNECTED = False
@@ -54,32 +56,6 @@ class Telemetry(object):
 telemetry = Telemetry(0, 0, 0, 0)
 
 
-class Obstacle(object):
-    # if is_sphere is false, it's a cylinder
-    is_sphere = True
-
-    def __init__(self, latitude, longitude, alt_height, radius, is_moving):
-        self.latitude = latitude
-        self.longitude = longitude
-        self.alt_height = alt_height
-        self.radius = radius
-        self.is_moving = is_moving
-
-    def printObstacle(self):
-        if self.is_sphere:
-            print('Sphere...')
-            print('latitude: ', self.latitude)
-            print('longitude: ', self.longitude)
-            print('altitude: ', self.alt_height)
-            print('radius: ', self.radius)
-        else:
-            print('Cylinder...')
-            print('latitude: ', self.latitude)
-            print('longitude: ', self.longitude)
-            print('height: ', self.alt_height)
-            print('radius: ', self.radius)
-
-
 class Target(object):
     id = -1
     user = -1
@@ -101,27 +77,7 @@ class Target(object):
         #  heptagon, octagon, star, cross
         # Color Types: white, black, gray, red, blue, green, yellow, purple, brown, orange
 
-
-def gps_callback(data):
-    # rospy.loginfo(rospy.get_caller_id() + "GPS Latitude: %s, Longitude: %s, Altitude: %s", data.latitude, data.longitude, data.altitude)
-    telem = dict()
-    telem['lat'] = data.latitude
-    telem['long'] = data.longitude
-    telem['alt'] = data.altitude
-    update_telemetry(telem)
-
-
-def hdg_callback(data):
-    # rospy.loginfo(rospy.get_caller_id() + "AUVSI Heading: %s", data.data)
-    telem = dict()
-    telem['hdg'] = data.data
-    update_telemetry(telem)
-
-from cv_bridge import CvBridge, CvBridgeError
-import cv2
 def target_callback(data):
-    print "here in target callback"
-    rospy.loginfo(rospy.get_caller_id() + "I heard a target.")
     # Setup target model and pass to post_target() and post_target_image()
     # TODO: create thread for this
     orientation_deg = int(data.orientation) % 360
@@ -142,11 +98,10 @@ def target_callback(data):
     else:
         orientation = "ne"
     # TODO: specify description and type
-    # TODO: tell the sniper_cam folks that they mixed up "symbol" and "symbol_color" fields on their custom message
+    # TODO: tell the sniper_cam folks that they mixed up "symbol" and "symbol_color" fields on their custom message. also tell them to support different target types
     target = Target("standard", data.gps_lati, data.gps_longit, orientation, data.target_shape, data.target_color, data.symbol_color, data.symbol, "no description yet")
     id = post_target(target)
     imgname = "target_" + str(id) + ".jpeg"
-    print "target posted"
     try:
         # Convert the ROS Image message to OpenCV2
         cv2_img = CvBridge().imgmsg_to_cv2(data.image, "bgr8")
@@ -156,8 +111,6 @@ def target_callback(data):
         # Save your OpenCV2 image as a jpeg
         cv2.imwrite(imgname, cv2_img)
     post_target_image(id, imgname)
-    print "target image posted"
-    print ""
 
 def state_callback(data):
     earth_radius = 6371
@@ -171,16 +124,13 @@ def state_callback(data):
     telem['alt'] = init_alt + (- data.position[2])  # Negate down because it is distance to initial altitude
     telem['hdg'] = math.degrees(data.chi % (2 * math.pi))
     update_telemetry(telem)
-    # rospy.loginfo(rospy.get_caller_id() + "GPS Latitude: %s, Longitude: %s, Altitude: %s, Heading %s", telem["lat"], telem["long"], telem["alt"], telem['hdg'])
+    # rospy.logdebug(rospy.get_caller_id() + "GPS Latitude: %s, Longitude: %s, Altitude: %s, Heading %s", telem["lat"], telem["long"], telem["alt"], telem['hdg'])
 
 
 def listener():
     print('Listening')
-    # rospy.Subscriber("/mavros/global_position/global", NavSatFix, gps_callback)  # gps information + altitude
-    # rospy.Subscriber("/mavros/global_position/compass_hdg", Float64, hdg_callback)  # heading
     rospy.Subscriber("/state", State, state_callback) # state info from ros_plane
-    rospy.Subscriber("/plans", interopImages, target_callback)
-    # rospy.Subscriber("chatter", String, targetcallback)  # This should be the listener for target images from image
+    rospy.Subscriber("/plans", interopImages, target_callback) # images + metadata from imaging gui
     #  processing
     rospy.spin()
 
@@ -214,17 +164,25 @@ def update_telemetry(data):
 def talker():
     print('Talking')
     obstacles = rospy.Publisher('obstacles', String, queue_size=10)
+    moving_obstacles = rospy.Publisher('obstacles/moving', String, queue_size=10)
+    stationary_obstacles = rospy.Publisher('obstacles/stationary', String, queue_size=10)
     missions = rospy.Publisher('missions', String, queue_size=10)
     rate = rospy.Rate(5)
 
     while not rospy.is_shutdown():
         string = get_obstacles()
-        #rospy.loginfo(string)
+        json_obstacles = json.loads(string)
+        rospy.logdebug(string)
         obstacles.publish(string)
+        moving_obstacles.publish(json.dumps(json_obstacles['moving_obstacles']))
+        stationary_obstacles.publish(json.dumps(json_obstacles['stationary_obstacles']))
+        print "Obstacles successfully recieved, parsed, and transmitted."
+
 
         string = get_missions()
-        #rospy.loginfo(string)
+        rospy.logdebug(string)
         missions.publish(string)
+        print "Missions successfully recieved and retransmitted."
 
         rate.sleep()
 
@@ -311,7 +269,7 @@ def send_request(method, resource, params, headers):
             response = SESSION.put(SERVERURL+resource, headers=headers, data=params)
 
         if response.status_code == 200 or response.status_code == 201:
-            #print('200/201 - Success')
+            # print('200/201 - Success') # let's not print this for every http request
             break
         elif response.status_code == 400:
             print('400 - Bad Request')
@@ -341,28 +299,8 @@ def send_request(method, resource, params, headers):
 
 
 def get_obstacles():
-    # obstacles = []
-
     response = send_request('GET', '/api/obstacles', None, headers={'Cookie': get_cookie()})
     return response.text
-    # jSon = json.loads(conn.getresponse().read().decode())
-
-    # for movObst in jSon['moving_obstacles']:
-    #     newObst = Obstacle(movObst['latitude'], movObst['longitude'], movObst['altitude_msl'],
-    #                         movObst['sphere_radius'], True)
-    #     newObst.is_sphere = True
-    #     obstacles.append(newObst)
-    #
-    # for statObst in jSon['stationary_obstacles']:
-    #     newObst = Obstacle(statObst['latitude'], statObst['longitude'], statObst['cylinder_height'],
-    #                        statObst['cylinder_radius'], False)
-    #     newObst.is_sphere = False
-    #     obstacles.append(newObst)
-    #
-    # # for obst in obstacles:
-    # #     obst.printObstacle()
-    #
-    # return obstacles
 
 
 def get_missions():
@@ -422,42 +360,10 @@ def post_target_image(target_id, image_name):
     response = send_request('POST', '/api/targets/' + str(target_id) + '/image', encoded_image, headers)
 
     if response.status_code == 200:
-        print("*****Target image was submitted successfully!******")
+        print("Target image was submitted successfully!")
     else:
-        print("*****Something went wrong with posting an image!*****")
+        print("Something went wrong with posting an image!")
         print(response.text)
-
-
-# def test_run():
-#     test_image()
-#
-#     while True:
-#         try:
-#             obstacles = get_obstacles()
-#             telemetry = Telemetry(0, 0, 0, 0)
-#             for obst in obstacles:
-#                 if obst.is_moving:
-#                     telemetry.altitude = obst.alt_height + 150
-#                     telemetry.longitude = obst.longitude
-#                     telemetry.latitude = obst.latitude
-#                     telemetry.heading = 90
-#                     break
-#
-#             post_telemetry(telemetry)
-#             sleep(.1)
-#         except Exception as e:
-#             print(e)
-
-
-# def test_image():
-#     image_name = os.path.relpath("images/test.jpg")
-#
-#     target = Target("standard", 76.11111, 57.12345, "N", "circle", "red", "A", "white", None)
-#     target_id = post_target(target)
-#     if target_id != -1:
-#         post_target_image(target_id, image_name)
-#     else:
-#         print("Couldn't post the image, post_target failed.")
 
 
 if __name__ == '__main__':
