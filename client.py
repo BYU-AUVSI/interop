@@ -173,7 +173,7 @@ def talker():
         string = get_obstacles()
         json_obstacles = json.loads(string)
         rospy.logdebug(string)
-        obstacles.publish(string)
+        obstacles.publish(str(string))
         moving_obstacles.publish(json.dumps(json_obstacles['moving_obstacles']))
         stationary_obstacles.publish(json.dumps(json_obstacles['stationary_obstacles']))
         print "Obstacles successfully recieved, parsed, and transmitted."
@@ -181,7 +181,7 @@ def talker():
 
         string = get_missions()
         rospy.logdebug(string)
-        missions.publish(string)
+        missions.publish(str(string))
         print "Missions successfully recieved and retransmitted."
 
         rate.sleep()
