@@ -117,11 +117,47 @@ def hdg_callback(data):
     telem['hdg'] = data.data
     update_telemetry(telem)
 
-
+from cv_bridge import CvBridge, CvBridgeError
+import cv2
 def target_callback(data):
-    rospy.loginfo(rospy.get_caller_id() + "I heard %s", data.data)
-    # Setup target model and pass to post_target() and post_target_image() [possibly spin up a thread to do this????]
-
+    print "here in target callback"
+    rospy.loginfo(rospy.get_caller_id() + "I heard a target.")
+    # Setup target model and pass to post_target() and post_target_image()
+    # TODO: create thread for this
+    orientation_deg = int(data.orientation) % 360
+    if (orientation_deg <= 22.5 or orientation_deg >= 337.5):
+        orientation = "n"
+    elif (orientation_deg >= 22.5 and orientation_deg <= 67.5):
+        orientation = "nw"
+    elif (orientation_deg >= 67.5 and orientation_deg <= 112.5):
+        orientation = "w"
+    elif (orientation_deg >= 112.5 and orientation_deg <= 157.5):
+        orientation = "sw"
+    elif (orientation_deg >= 157.5 and orientation_deg <= 202.5):
+        orientation = "s"
+    elif (orientation_deg >= 202.5 and orientation_deg <= 247.5):
+        orientation = "se"
+    elif (orientation_deg >= 247.5 and orientation_deg <= 292.5):
+        orientation = "e"
+    else:
+        orientation = "ne"
+    # TODO: specify description and type
+    # TODO: tell the sniper_cam folks that they mixed up "symbol" and "symbol_color" fields on their custom message
+    target = Target("standard", data.gps_lati, data.gps_longit, orientation, data.target_shape, data.target_color, data.symbol_color, data.symbol, "no description yet")
+    id = post_target(target)
+    imgname = "target_" + str(id) + ".jpeg"
+    print "target posted"
+    try:
+        # Convert the ROS Image message to OpenCV2
+        cv2_img = CvBridge().imgmsg_to_cv2(data.image, "bgr8")
+    except CvBridgeError, e:
+        print("ERROR: saving target "+ str(id) + " image")
+    else:
+        # Save your OpenCV2 image as a jpeg
+        cv2.imwrite(imgname, cv2_img)
+    post_target_image(id, imgname)
+    print "target image posted"
+    print ""
 
 def state_callback(data):
     earth_radius = 6371
@@ -143,7 +179,7 @@ def listener():
     # rospy.Subscriber("/mavros/global_position/global", NavSatFix, gps_callback)  # gps information + altitude
     # rospy.Subscriber("/mavros/global_position/compass_hdg", Float64, hdg_callback)  # heading
     rospy.Subscriber("/state", State, state_callback) # state info from ros_plane
-    rospy.Subscriber("/images/targets", String, target_callback) # TODO: create custom message type
+    rospy.Subscriber("/plans", interopImages, target_callback)
     # rospy.Subscriber("chatter", String, targetcallback)  # This should be the listener for target images from image
     #  processing
     rospy.spin()
@@ -183,11 +219,11 @@ def talker():
 
     while not rospy.is_shutdown():
         string = get_obstacles()
-        rospy.loginfo(string)
+        #rospy.loginfo(string)
         obstacles.publish(string)
 
         string = get_missions()
-        rospy.loginfo(string)
+        #rospy.loginfo(string)
         missions.publish(string)
 
         rate.sleep()
@@ -275,7 +311,7 @@ def send_request(method, resource, params, headers):
             response = SESSION.put(SERVERURL+resource, headers=headers, data=params)
 
         if response.status_code == 200 or response.status_code == 201:
-            print('200/201 - Success')
+            #print('200/201 - Success')
             break
         elif response.status_code == 400:
             print('400 - Bad Request')
@@ -308,7 +344,7 @@ def get_obstacles():
     # obstacles = []
 
     response = send_request('GET', '/api/obstacles', None, headers={'Cookie': get_cookie()})
-    return response.json()
+    return response.text
     # jSon = json.loads(conn.getresponse().read().decode())
 
     # for movObst in jSon['moving_obstacles']:
@@ -331,7 +367,7 @@ def get_obstacles():
 
 def get_missions():
     response = send_request('GET', '/api/missions', None, headers={'Cookie': get_cookie()})
-    return response.json
+    return response.text
 
 
 def send_telemetry():
@@ -389,7 +425,7 @@ def post_target_image(target_id, image_name):
         print("*****Target image was submitted successfully!******")
     else:
         print("*****Something went wrong with posting an image!*****")
-        print(response.read().decode())
+        print(response.text)
 
 
 # def test_run():
