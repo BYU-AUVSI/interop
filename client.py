@@ -110,6 +110,8 @@ def target_callback(data):
         # Save your OpenCV2 image as a jpeg
         cv2.imwrite(imgname, cv2_img)
     post_target_image(id, imgname)
+    # delete the image now that we're done using it
+    os.remove(imgname)
 
 def state_callback(data):
     earth_radius = 6371
