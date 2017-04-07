@@ -98,13 +98,12 @@ def target_callback(data):
     else:
         orientation = "ne"
     # TODO: specify description and type
-    # TODO: tell the sniper_cam folks that they mixed up "symbol" and "symbol_color" fields on their custom message. also tell them to support different target types
-    target = Target("standard", data.gps_lati, data.gps_longit, orientation, data.target_shape, data.target_color, data.symbol_color, data.symbol, "no description yet")
+    target = Target("standard", data.gps_lati, data.gps_longit, orientation, data.target_shape, data.target_color, data.symbol, data.symbol_color, "no description yet")
     id = post_target(target)
     imgname = "target_" + str(id) + ".jpeg"
     try:
         # Convert the ROS Image message to OpenCV2
-        cv2_img = CvBridge().imgmsg_to_cv2(data.image, "bgr8")
+        cv2_img = CvBridge().imgmsg_to_cv2(data.image, "rgb8")
     except CvBridgeError, e:
         print("ERROR: saving target "+ str(id) + " image")
     else:
