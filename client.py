@@ -80,7 +80,7 @@ class Target(object):
 def target_callback(data):
     # Setup target model and pass to post_target() and post_target_image()
     # TODO: create thread for this
-    orientation_deg = int(data.orientation) % 360
+    orientation_deg = data.orientation % 360
     if (orientation_deg <= 22.5 or orientation_deg >= 337.5):
         orientation = "n"
     elif (orientation_deg >= 22.5 and orientation_deg <= 67.5):
@@ -97,8 +97,8 @@ def target_callback(data):
         orientation = "e"
     else:
         orientation = "ne"
-    # TODO: specify description and type
-    target = Target("standard", data.gps_lati, data.gps_longit, orientation, data.target_shape, data.target_color, data.symbol, data.symbol_color, "no description yet")
+
+    target = Target(data.type, data.gps_lati, data.gps_longit, orientation, data.target_shape, data.target_color, data.symbol, data.symbol_color, data.description)
     id = post_target(target)
     imgname = "target_" + str(id) + ".jpeg"
     try:
