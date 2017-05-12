@@ -19,9 +19,23 @@ from sniper_cam.msg import interopImages
 
 # set these values according to current environment variables
 # if environment variables don't exist, use default values
-SERVERADDR = os.getenv('INTEROP_SERVER', os.getenv('SERVER', '127.0.0.1'))
-SERVERPORT = os.getenv('SERVER_PORT', os.getenv('PORT', 80))
+def assert_param(default, *args):
+    for arg in args:
+        if (os.environ.get(arg) != None):
+            return os.environ.get(arg)
+    if (default != None):
+        print("could not find value for " + args[0] + ". Using default value of " + str(default))
+        return default
+    else:
+        print("could not find default value for " + args[0])
+        exit()
+SERVERADDR = assert_param('127.0.0.1', 'INTEROP_SERVER', 'SERVER')
+SERVERPORT = int(assert_param(80, 'SERVER_PORT', 'PORT'))
 SERVERURL = "http://" + SERVERADDR + ":" + str(SERVERPORT)
+INIT_LAT = int(assert_param(39.9833362, 'INIT_LAT', 'INIT_LATITUDE'))
+INIT_LONG = int(assert_param(-111.99, 'INIT_LONG', 'INIT_LONGITUDE'))
+INIT_ALT = int(assert_param(5, 'INIT_ALT', 'INIT_ALTITUDE'))
+EARTH_RADIUS = 6371
 GLOBALCOOKIE = None
 CONNECTED = False
 RETRY_MAX = 3
@@ -114,15 +128,10 @@ def target_callback(data):
     os.remove(imgname)
 
 def state_callback(data):
-    earth_radius = 6371
-    init_lat = 38.144711
-    init_lon = -76.428020
-    init_alt = 5.1
-
     telem = dict()
-    telem['lat'] = ((data.position[0] * 180)/(earth_radius * math.pi)) + init_lat
-    telem['long'] = (data.position[1] * 180)/(earth_radius * math.cos(init_lat*math.pi/180.0)*math.pi) + init_lon
-    telem['alt'] = init_alt + (- data.position[2])  # Negate down because it is distance to initial altitude
+    telem['lat'] = ((data.position[0] * 180)/(EARTH_RADIUS * math.pi)) + INIT_LAT
+    telem['long'] = (data.position[1] * 180)/(EARTH_RADIUS * math.cos(INIT_LAT*math.pi/180.0)*math.pi) + INIT_LON
+    telem['alt'] = INIT_ALT + (- data.position[2])  # Negate down because it is distance to initial altitude
     telem['hdg'] = math.degrees(data.chi % (2 * math.pi))
     update_telemetry(telem)
     # rospy.logdebug(rospy.get_caller_id() + "GPS Latitude: %s, Longitude: %s, Altitude: %s, Heading %s", telem["lat"], telem["long"], telem["alt"], telem['hdg'])
@@ -170,6 +179,7 @@ def talker():
     missions = rospy.Publisher('missions', String, queue_size=10)
     rate = rospy.Rate(5)
 
+    print "fetching, parsing, and transmitting obstacle and mission data..."
     while not rospy.is_shutdown():
         string = get_obstacles()
         json_obstacles = json.loads(string)
@@ -177,13 +187,10 @@ def talker():
         obstacles.publish(str(string))
         moving_obstacles.publish(json.dumps(json_obstacles['moving_obstacles']))
         stationary_obstacles.publish(json.dumps(json_obstacles['stationary_obstacles']))
-        print "Obstacles successfully recieved, parsed, and transmitted."
-
 
         string = get_missions()
         rospy.logdebug(string)
         missions.publish(str(string))
-        print "Missions successfully recieved and retransmitted."
 
         rate.sleep()
 
