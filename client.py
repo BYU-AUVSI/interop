@@ -32,10 +32,6 @@ def assert_param(default, *args):
 SERVERADDR = assert_param('127.0.0.1', 'INTEROP_SERVER', 'SERVER')
 SERVERPORT = int(assert_param(80, 'SERVER_PORT', 'PORT'))
 SERVERURL = "http://" + SERVERADDR + ":" + str(SERVERPORT)
-INIT_LAT = int(assert_param(39.9833362, 'INIT_LAT', 'INIT_LATITUDE'))
-INIT_LONG = int(assert_param(-111.99, 'INIT_LONG', 'INIT_LONGITUDE'))
-INIT_ALT = int(assert_param(5, 'INIT_ALT', 'INIT_ALTITUDE'))
-EARTH_RADIUS = 6371
 GLOBALCOOKIE = None
 CONNECTED = False
 RETRY_MAX = 3
